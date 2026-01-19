@@ -156,11 +156,23 @@
           <h2>Your Settings</h2>
           <div class="input-section">
             <div class="input-group">
-              <label for="profile-weight">Default Weight (kg)</label>
+              <div class="label-row">
+                <label for="profile-weight">Default Weight</label>
+                <div class="unit-toggle">
+                  <span class="unit-option active" data-unit-type="weight" data-unit="kg">kg</span>
+                  <span class="unit-option" data-unit-type="weight" data-unit="lbs">lbs</span>
+                </div>
+              </div>
               <input type="number" id="profile-weight" placeholder="e.g. 80" min="0">
             </div>
             <div class="input-group">
-              <label for="profile-goal">Weekly Goal (km)</label>
+              <div class="label-row">
+                <label for="profile-goal">Weekly Goal</label>
+                <div class="unit-toggle">
+                  <span class="unit-option active" data-unit-type="distance" data-unit="km">km</span>
+                  <span class="unit-option" data-unit-type="distance" data-unit="mi">mi</span>
+                </div>
+              </div>
               <input type="number" id="profile-goal" placeholder="e.g. 100" min="0">
             </div>
           </div>
@@ -208,9 +220,39 @@
           <div id="app-content-peloton" class="app-content active">
             <div class="app-details">
               <span class="app-icon">🚴‍♀️</span>
-              <p>Join live classes and track your leaderboard status.</p>
-              <a href="https://www.onepeloton.com/app" target="_blank" class="btn btn-secondary app-link-btn">Open
-                Peloton</a>
+              <p>Sync your recent rides to join the challenge.</p>
+
+              <div class="workouts-container">
+                <div class="header-row"
+                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                  <h3 style="margin: 0;">Recent Synced Rides</h3>
+                  <button id="sync-peloton-btn" class="btn btn-icon" title="Sync for new rides"
+                    style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">🔄</button>
+                </div>
+
+                <!-- Manual Entry Form -->
+                <div class="manual-entry-form">
+                  <input type="text" id="manual-title" placeholder="Ride Title (e.g. 30 min Pop)" class="manual-input">
+                  <input type="number" id="manual-output" placeholder="Output (kJ)" class="manual-input"
+                    style="width: 100px;">
+                  <button id="add-manual-btn" class="btn btn-secondary btn-sm">+</button>
+                </div>
+
+                <div id="workout-list">
+                  <!-- Workouts will be injected here -->
+                </div>
+              </div>
+
+              <div class="challenge-controls">
+                <p id="challenge-summary">0 kJ selected</p>
+                <button id="add-to-challenge-btn" class="btn btn-primary" disabled>Add to Challenge</button>
+              </div>
+
+              <a href="https://www.onepeloton.com/app" target="_blank" class="btn btn-text app-link-btn"
+                style="margin-top: 1rem;">Open Peloton App</a>
+              <a href="https://members.onepeloton.com/profile/overview" target="_blank"
+                class="btn btn-text app-link-btn"
+                style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.8rem;">My Profile</a>
             </div>
           </div>
 
