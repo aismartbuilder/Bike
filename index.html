@@ -9,17 +9,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
   <!-- Navigation (Visible on all pages when logged in, or just Landing) -->
-  <nav id="main-nav" class="hidden">
-    <div class="nav-content">
-      <span class="logo">🚲 PhysicsEngine</span>
-      <button id="logout-btn">Logout</button>
-    </div>
-  </nav>
+  <!-- Navigation Removed (Integrated into App Header) -->
 
   <!-- LANDING PAGE -->
   <div id="landing-view" class="view-section">
@@ -102,13 +98,64 @@
   <!-- MAIN APP -->
   <div id="app-view" class="view-section hidden">
     <header>
-      <h1>Fitness Physics Engine</h1>
-      <p>Convert your Peloton output into real-world achievements.</p>
+      <div class="header-top"
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div class="brand">
+          <h1>Fitness Physics Engine</h1>
+          <p>Convert your Peloton output into real-world achievements.</p>
+        </div>
+
+        <div class="user-controls">
+          <button id="logout-btn" class="btn btn-secondary btn-sm">Logout</button>
+          <div id="user-avatar" class="user-avatar">
+            <span id="user-initials">UE</span> <!-- User Initials -->
+          </div>
+
+          <!-- Settings Dropdown -->
+          <div id="settings-dropdown" class="settings-dropdown hidden">
+            <h3>Your Settings</h3>
+
+            <div class="input-group">
+              <div class="label-row">
+                <label for="profile-weight">Default Weight</label>
+                <div class="unit-toggle">
+                  <span class="unit-option active" data-unit-type="weight" data-unit="kg">kg</span>
+                  <span class="unit-option" data-unit-type="weight" data-unit="lbs">lbs</span>
+                </div>
+              </div>
+              <input type="number" id="profile-weight" placeholder="e.g. 80" min="0">
+            </div>
+
+            <div class="input-group">
+              <div class="label-row">
+                <label for="profile-goal">Weekly Goal</label>
+                <div class="unit-toggle">
+                  <span class="unit-option active" data-unit-type="distance" data-unit="km">km</span>
+                  <span class="unit-option" data-unit-type="distance" data-unit="mi">mi</span>
+                </div>
+              </div>
+              <input type="number" id="profile-goal" placeholder="e.g. 100" min="0">
+            </div>
+
+            <div class="input-group" style="margin-top: 1rem;">
+              <label>Theme</label>
+              <div class="theme-selector">
+                <button class="theme-btn active" data-theme="theme-dark">🌑</button>
+                <button class="theme-btn" data-theme="theme-light">☀️</button>
+                <button class="theme-btn" data-theme="theme-neon">⚡</button>
+              </div>
+            </div>
+
+            <button id="save-profile-btn" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">Save</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Tab Navigation -->
       <div class="tab-nav">
         <button class="tab-btn active" data-tab="calculator">Climb</button>
-        <button class="tab-btn" data-tab="profile">Profile & Apps</button>
+        <button class="tab-btn" data-tab="challenges">Challenges</button>
+        <button class="tab-btn" data-tab="profile">Achievements</button>
       </div>
     </header>
 
@@ -152,127 +199,116 @@
 
       <!-- PROFILE TAB -->
       <div id="tab-profile" class="tab-content hidden">
-        <div class="card profile-section">
-          <h2>Your Settings</h2>
-          <div class="input-section">
-            <div class="input-group">
-              <div class="label-row">
-                <label for="profile-weight">Default Weight</label>
-                <div class="unit-toggle">
-                  <span class="unit-option active" data-unit-type="weight" data-unit="kg">kg</span>
-                  <span class="unit-option" data-unit-type="weight" data-unit="lbs">lbs</span>
-                </div>
-              </div>
-              <input type="number" id="profile-weight" placeholder="e.g. 80" min="0">
-            </div>
-            <div class="input-group">
-              <div class="label-row">
-                <label for="profile-goal">Weekly Goal</label>
-                <div class="unit-toggle">
-                  <span class="unit-option active" data-unit-type="distance" data-unit="km">km</span>
-                  <span class="unit-option" data-unit-type="distance" data-unit="mi">mi</span>
-                </div>
-              </div>
-              <input type="number" id="profile-goal" placeholder="e.g. 100" min="0">
-            </div>
-          </div>
-          <p class="description" style="margin-bottom: 1rem;">These settings help tailor the experience to you.</p>
-
-          <div class="input-group" style="margin-top: 1rem;">
-            <label>Theme</label>
-            <div class="theme-selector">
-              <button class="theme-btn active" data-theme="theme-dark">🌑 Dark</button>
-              <button class="theme-btn" data-theme="theme-light">☀️ Light</button>
-              <button class="theme-btn" data-theme="theme-neon">⚡ Neon</button>
-            </div>
-          </div>
-
-          <button id="save-profile-btn" class="btn btn-primary" style="margin-top: 1.5rem;">Save Settings</button>
-        </div>
-
-        <div class="card achievements-section" style="margin-top: 2rem;">
-          <h2>Achievements</h2>
+        <div class="card achievements-section" style="margin-top: 0;">
+          <h2>Your Trophy Case</h2>
           <div class="badges-grid">
             <div class="badge locked" id="badge-first-ride">
               <span class="badge-icon">🚴</span>
               <p>First Ride</p>
             </div>
+            <div class="badge locked" id="badge-montblanc">
+              <span class="badge-icon">🏔️</span>
+              <p>Mont Blanc</p>
+            </div>
+            <div class="badge locked" id="badge-kilimanjaro">
+              <span class="badge-icon">🦁</span>
+              <p>Kilimanjaro</p>
+            </div>
+            <div class="badge locked" id="badge-k2">
+              <span class="badge-icon">⛰️</span>
+              <p>K2</p>
+            </div>
+            <div class="badge locked" id="badge-everest">
+              <span class="badge-icon">🧗</span>
+              <p>Mt. Everest</p>
+            </div>
             <div class="badge locked" id="badge-eiffel">
               <span class="badge-icon">🗼</span>
               <p>Eiffel Tower</p>
             </div>
-            <div class="badge locked" id="badge-everest">
-              <span class="badge-icon">🏔️</span>
-              <p>Mt. Everest</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="tab-challenges" class="tab-content hidden">
+        <div class="card challenges-section">
+          <h2>Climbing Challenges</h2>
+          <p class="description">Select a summit to conquer. All your rides count towards the active challenge.</p>
+
+          <div id="challenges-grid" class="challenges-grid">
+            <!-- Challenge Cards Injected by JS -->
+          </div>
+        </div>
+
+        <!-- Create Challenge Form -->
+        <div class="card create-challenge-section" style="margin-top: 1rem;">
+          <h3>Create Custom Goal</h3>
+          <div class="create-challenge-container"
+            style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
+            <div class="form-row">
+              <input type="text" id="new-challenge-name" placeholder="Goal Name (e.g. Local Hill)" class="manual-input"
+                style="flex: 2;">
+              <input type="number" id="new-challenge-height" placeholder="Height (m)" class="manual-input"
+                style="flex: 1;">
+              <button id="create-challenge-btn" class="btn btn-secondary" style="flex: 0 0 auto;">+</button>
             </div>
           </div>
         </div>
 
-        <div class="card apps-section">
-          <h2>Connect Apps</h2>
-          <p>Sync your workouts or find classes.</p>
+        <div class="card apps-section" style="margin-top: 2rem;">
+          <h2>Workouts</h2>
+          <p>Log your activities and assign them to challenges.</p>
 
-          <div class="app-tabs">
-            <button class="app-tab-btn active" data-app-tab="peloton">Peloton</button>
-            <button class="app-tab-btn" data-app-tab="apple">Apple Fitness</button>
-          </div>
-
-          <div id="app-content-peloton" class="app-content active">
-            <div class="app-details">
-              <span class="app-icon">🚴‍♀️</span>
-              <p>Sync your recent rides to join the challenge.</p>
-
-              <div class="workouts-container">
-                <div class="header-row"
-                  style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                  <h3 style="margin: 0;">Recent Synced Rides</h3>
-                  <button id="sync-peloton-btn" class="btn btn-icon" title="Sync for new rides"
-                    style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">🔄</button>
-                </div>
-
-                <!-- Manual Entry Form -->
-                <div class="manual-entry-form">
-                  <input type="text" id="manual-title" placeholder="Ride Title (e.g. 30 min Pop)" class="manual-input">
-                  <input type="number" id="manual-output" placeholder="Output (kJ)" class="manual-input"
-                    style="width: 100px;">
-                  <button id="add-manual-btn" class="btn btn-secondary btn-sm">+</button>
-                </div>
-
-                <div id="workout-list">
-                  <!-- Workouts will be injected here -->
-                </div>
+          <div class="workout-log-container">
+            <!-- New Detailed Form -->
+            <div class="workout-log-form">
+              <div class="form-row">
+                <select id="log-type" class="manual-input">
+                  <option value="bike">🚴 Bike</option>
+                  <option value="run">🏃 Run</option>
+                  <option value="walk">🚶 Walk</option>
+                  <option value="hike">🥾 Hike</option>
+                </select>
+                <input type="date" id="log-date" class="manual-input">
               </div>
-
-              <div class="challenge-controls">
-                <p id="challenge-summary">0 kJ selected</p>
-                <button id="add-to-challenge-btn" class="btn btn-primary" disabled>Add to Challenge</button>
+              <div class="form-row">
+                <input type="text" id="log-desc" placeholder="Description (e.g. Morning 5K)" class="manual-input"
+                  style="flex: 2;">
+                <input type="number" id="log-output" placeholder="Output (kJ)" class="manual-input" style="flex: 1;">
               </div>
-
-              <a href="https://www.onepeloton.com/app" target="_blank" class="btn btn-text app-link-btn"
-                style="margin-top: 1rem;">Open Peloton App</a>
-              <a href="https://members.onepeloton.com/profile/overview" target="_blank"
-                class="btn btn-text app-link-btn"
-                style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.8rem;">My Profile</a>
+              <button id="log-workout-btn" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem;">Log
+                Workout</button>
             </div>
-          </div>
 
-          <div id="app-content-apple" class="app-content hidden">
-            <div class="app-details">
-              <span class="app-icon">🏃‍♂️</span>
-              <p>Close your rings and sync with Apple Watch.</p>
-              <a href="https://www.apple.com/apple-fitness-plus/" target="_blank"
-                class="btn btn-secondary app-link-btn">Open Apple Fitness</a>
+            <div class="workouts-container">
+              <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Recent Logs</h3>
+              <div id="workout-list">
+                <!-- Workouts injected here -->
+              </div>
+            </div>
+
+            <div class="challenge-controls">
+              <div class="control-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <select id="target-challenge-select" class="manual-input" style="flex: 1;">
+                  <!-- Options injected by JS -->
+                </select>
+              </div>
+              <p id="challenge-summary" style="margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted);">0 kJ
+                selected</p>
+              <button id="add-to-challenge-btn" class="btn btn-primary" disabled>Add to Challenge</button>
             </div>
           </div>
         </div>
       </div>
-    </main>
-
-    <footer>
-      <p>Assumes Bike Weight: 61kg | Efficiency: 100% Mechanical</p>
-    </footer>
   </div>
-  <script type="module" src="/main.js"></script>
+  </main>
+
+  <footer>
+    <p>Assumes Bike Weight: 61kg | Efficiency: 100% Mechanical</p>
+  </footer>
+  </div>
+  <script type="module" src="main.js"></script>
 </body>
 
 </html>

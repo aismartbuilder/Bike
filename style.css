@@ -108,14 +108,16 @@ body {
 .view-section {
   width: 100%;
   max-width: 1200px;
-  padding: 6rem 1rem 2rem;
-  /* Top padding for fixed nav */
+  padding: 2rem 1rem;
+  /* Reduced top padding */
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   flex: 1;
+
 }
+
 
 .hidden {
   display: none !important;
@@ -446,6 +448,8 @@ footer {
   cursor: pointer;
   font-family: inherit;
   font-weight: 600;
+  flex: 1;
+  text-align: center;
   transition: all 0.3s ease;
 }
 
@@ -584,6 +588,21 @@ footer {
   transition: all 0.5s;
 }
 
+.challenge-img {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.challenge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
 .badge p {
   margin: 0;
   font-size: 0.8rem;
@@ -690,6 +709,13 @@ footer {
   cursor: pointer;
   color: var(--text-muted);
   transition: all 0.2s;
+}
+
+.unit-option.active {
+  background: var(--primary-color);
+  color: var(--bg-color);
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Sync Workouts */
@@ -819,8 +845,180 @@ footer {
   display: inline-block;
 }
 
-.btn-icon:hover {
-  opacity: 0.8;
-  transform: scale(1.1);
-  transition: transform 0.2s;
+
+/* Challenges Tab */
+.challenges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.challenge-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.challenge-card:hover {
+  transform: translateY(-5px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.challenge-card.active-challenge {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+}
+
+.challenge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.challenge-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.challenge-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.challenge-height {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.challenge-progress-container {
+  background: rgba(255, 255, 255, 0.1);
+  height: 8px;
+  border-radius: 4px;
+  margin: 1rem 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+/* Header Controls Positioning */
+.user-controls {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.challenge-progress-bar {
+  background: var(--gradient-primary);
+  height: 100%;
+  width: 0%;
+  transition: width 0.5s ease;
+}
+
+.challenge-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.btn-challenge {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-challenge.join {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.btn-challenge.join:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+
+/* Workout Log Form */
+.form-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.workout-log-form {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#log-type {
+  background-color: rgba(0, 0, 0, 0.3);
+  color: white;
+  cursor: pointer;
+}
+
+#log-date {
+  color-scheme: dark;
+}
+
+/* User Avatar & Settings */
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  background: var(--primary-color);
+  color: var(--bg-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.user-avatar:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 10px var(--primary-color);
+}
+
+.settings-dropdown {
+  position: absolute;
+  top: 55px;
+  right: 0;
+  width: 300px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.settings-dropdown.hidden {
+  display: none;
+}
+
+.settings-dropdown h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
 }

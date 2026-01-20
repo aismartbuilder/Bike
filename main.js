@@ -1,8 +1,8 @@
 
-import './style.css'
+// import './style.css' // Loaded via HTML now
 import { calculateElevation } from './physicsEngine.js'
 import { auth } from './src/auth.js'
-import confetti from 'canvas-confetti'
+// import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/+esm'
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- View Elements ---
@@ -13,7 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
         app: document.getElementById('app-view')
     };
 
-    const nav = document.getElementById('main-nav');
+    // Legacy nav removed
+    // const nav = document.getElementById('main-nav');
     const logoutBtn = document.getElementById('logout-btn');
 
     // --- State Management ---
@@ -25,12 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
             views[viewName].classList.remove('hidden');
         }
 
-        // Handle Nav Visibility
-        if (viewName === 'app') {
-            nav.classList.remove('hidden');
-        } else {
-            nav.classList.add('hidden');
-        }
+        // Handle Nav Visibility - Removed
+        // if (viewName === 'app') { ... }
     }
 
     function checkAuth() {
@@ -61,11 +58,51 @@ document.addEventListener('DOMContentLoaded', () => {
         switchView('login');
     });
 
-    // Logout
-    logoutBtn.addEventListener('click', () => {
-        auth.logout();
-        switchView('landing');
-    });
+    // --- Header & User Logic ---
+    const userAvatar = document.getElementById('user-avatar');
+    const userInitials = document.getElementById('user-initials');
+    const settingsDropdown = document.getElementById('settings-dropdown');
+
+    // Set Initials
+    const currentUser = auth.getUser();
+    if (currentUser) {
+        let text = 'U';
+        if (currentUser.name) {
+            text = currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        } else if (currentUser.username) {
+            text = currentUser.username.substring(0, 2).toUpperCase();
+        }
+        if (userInitials) userInitials.textContent = text;
+    }
+
+    // Toggle Dropdown
+    if (userAvatar && settingsDropdown) {
+        userAvatar.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsDropdown.classList.toggle('hidden');
+        });
+
+        // Close on click outside
+        document.addEventListener('click', (e) => {
+            if (!settingsDropdown.classList.contains('hidden') &&
+                !settingsDropdown.contains(e.target) &&
+                e.target !== userAvatar) {
+                settingsDropdown.classList.add('hidden');
+            }
+        });
+
+        // Prevent closing when clicking inside dropdown
+        settingsDropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    }
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            auth.logout();
+            switchView('landing');
+        });
+    }
 
     // --- Event Listeners : Auth Forms ---
 
@@ -110,11 +147,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalOutput = parseFloat(outputInput.value);
         let userWeight = parseFloat(weightInput.value);
 
-        // Handle Weight Unit
-        const weightUnit = localStorage.getItem('unit_weight') || 'kg';
-        if (weightUnit === 'lbs') {
-            userWeight = userWeight * 0.453592; // Convert lbs to kg
-        }
+        // Handle Weight Unit - Toggle removed from HTML, defaulting to KG input
+        // const calcWeightUnit = 'kg'; 
+        // if (calcWeightUnit === 'lbs') {
+        //     userWeight = userWeight * 0.453592; // Convert lbs to kg
+        // }
 
         if (isNaN(totalOutput) || isNaN(userWeight) || totalOutput < 0 || userWeight < 0) {
             alert('Please enter valid positive numbers for both fields.');
@@ -139,7 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabs = document.querySelectorAll('.tab-btn');
     const tabContents = {
         calculator: document.getElementById('tab-calculator'),
-        profile: document.getElementById('tab-profile')
+        profile: document.getElementById('tab-profile'),
+        challenges: document.getElementById('tab-challenges')
     };
 
     tabs.forEach(tab => {
@@ -167,6 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Unit Logic ---
     const weightToggles = document.querySelectorAll('[data-unit-type="weight"]');
+    const calcWeightToggles = document.querySelectorAll('[data-unit-type="calc-weight"]');
     const distanceToggles = document.querySelectorAll('[data-unit-type="distance"]');
 
     function setUnit(type, unit) {
@@ -194,6 +233,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Listeners
     weightToggles.forEach(t => t.addEventListener('click', () => setUnit('weight', t.dataset.unit)));
+    calcWeightToggles.forEach(t => t.addEventListener('click', () => {
+        // Simple UI toggle for calculator tab, no persistence needed for this specific request or could persist separately
+        // For now, just toggle class
+        calcWeightToggles.forEach(btn => btn.classList.remove('active'));
+        t.classList.add('active');
+
+        // Update placeholder logic if we want to be fancy, but simple toggle is enough
+        // Maybe update local storage if we want to remember preference?
+        // Let's keep it simple as a UI state for now or match profile?
+        // User asked "allow user to enter ... in KG or pounds", implies immediate switch.
+        // Let's just handle the active class switch.
+    }));
     distanceToggles.forEach(t => t.addEventListener('click', () => setUnit('distance', t.dataset.unit)));
 
     // Load Settings
@@ -300,6 +351,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const badges = [
         { id: 'first-ride', threshold: 10, name: 'First Ride' },
         { id: 'eiffel', threshold: 324, name: 'Eiffel Tower' },
+        { id: 'montblanc', threshold: 4807, name: 'Mont Blanc' },
+        { id: 'kilimanjaro', threshold: 5895, name: 'Kilimanjaro' },
+        { id: 'k2', threshold: 8611, name: 'K2' },
         { id: 'everest', threshold: 8848, name: 'Mt. Everest' }
     ];
 
@@ -323,11 +377,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateBadgeUI(badge.id);
 
         // Celebrate
-        confetti({
-            particleCount: 150,
-            spread: 70,
-            origin: { y: 0.6 }
-        });
+        // confetti({
+        //     particleCount: 150,
+        //     spread: 70,
+        //     origin: { y: 0.6 }
+        // });
 
         alert(`🏆 Achievement Unlocked: ${badge.name}!`);
     }
@@ -349,107 +403,216 @@ document.addEventListener('DOMContentLoaded', () => {
     const workoutList = document.getElementById('workout-list');
     const addToChallengeBtn = document.getElementById('add-to-challenge-btn');
     const challengeSummary = document.getElementById('challenge-summary');
-    const manualTitleInput = document.getElementById('manual-title');
-    const manualOutputInput = document.getElementById('manual-output');
-    const addManualBtn = document.getElementById('add-manual-btn');
-    const syncBtn = document.getElementById('sync-peloton-btn');
 
-    let mockWorkouts = JSON.parse(localStorage.getItem('synced_workouts') || '[]');
+    // New Form Elements
+    const logTypeInput = document.getElementById('log-type');
+    const logDateInput = document.getElementById('log-date');
+    const logDescInput = document.getElementById('log-desc');
+    const logOutputInput = document.getElementById('log-output');
+    const logBtn = document.getElementById('log-workout-btn');
+    const targetChallengeSelect = document.getElementById('target-challenge-select');
+    // workoutList already defined above
+    // profileWeightInput already defined above
 
-    // Default data if empty
-    if (mockWorkouts.length === 0) {
-        mockWorkouts = [
-            { id: 1, date: 'Today', title: '30 min Climb Ride', output: 400 },
-            { id: 2, date: 'Yesterday', title: '20 min HIIT', output: 250 },
-            { id: 3, date: 'Oct 24', title: '45 min Power Zone', output: 600 }
-        ];
+    let workoutHistory = JSON.parse(localStorage.getItem('workout_history') || '[]');
+
+    function getIconForType(type) {
+        switch (type) {
+            case 'bike': return '🚴';
+            case 'run': return '🏃';
+            case 'walk': return '🚶';
+            case 'hike': return '🥾';
+            default: return '💪';
+        }
     }
 
-    function addManualWorkout() {
-        const title = manualTitleInput.value.trim();
-        const output = parseInt(manualOutputInput.value);
+    function logWorkout() {
+        // Debugging
+        console.log('Attempting to log workout...');
 
-        if (!title || !output || output <= 0) {
-            alert('Please enter a valid title and positive output.');
+        const type = logTypeInput.value;
+        const date = logDateInput.value || new Date().toISOString().split('T')[0];
+        const desc = logDescInput.value.trim();
+        const output = parseInt(logOutputInput.value);
+
+        if (!desc || !output || output <= 0) {
+            alert('Please enter a description and valid output.');
             return;
         }
 
         const newWorkout = {
             id: Date.now(),
-            date: 'Today', // Simplified for manual entry
-            title: title,
-            output: output
+            type,
+            date,
+            title: desc,
+            output
         };
 
-        mockWorkouts.unshift(newWorkout); // Add to top
-        localStorage.setItem('synced_workouts', JSON.stringify(mockWorkouts));
+        workoutHistory.unshift(newWorkout);
+        localStorage.setItem('workout_history', JSON.stringify(workoutHistory));
         renderWorkouts();
 
-        // Clear inputs
-        manualTitleInput.value = '';
-        manualOutputInput.value = '';
+        // Clear text inputs
+        logDescInput.value = '';
+        logOutputInput.value = '';
     }
 
-    if (addManualBtn) {
-        addManualBtn.addEventListener('click', addManualWorkout);
-
-        // Allow Enter key
-        [manualTitleInput, manualOutputInput].forEach(input => {
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') addManualWorkout();
-            });
-        });
+    if (logBtn) {
+        logBtn.addEventListener('click', logWorkout);
     }
 
-    // --- Simulated Sync Logic ---
-    const possibleRides = [
-        { title: '45 min Pop Ride', minOutput: 400, maxOutput: 600 },
-        { title: '30 min Tabata', minOutput: 300, maxOutput: 500 },
-        { title: '20 min Low Impact', minOutput: 150, maxOutput: 250 },
-        { title: '60 min Climb', minOutput: 600, maxOutput: 900 },
-        { title: '30 min HIIT & Hills', minOutput: 350, maxOutput: 550 }
+    // Debug check for inputs
+    if (!logTypeInput || !logDateInput || !logDescInput || !logOutputInput) {
+        console.error('One or more log inputs are missing');
+    }
+
+    // --- Challenges Logic ---
+    const challengesGrid = document.getElementById('challenges-grid');
+
+    // New Challenge Inputs
+    const newChallengeName = document.getElementById('new-challenge-name');
+    const newChallengeHeight = document.getElementById('new-challenge-height');
+    const createChallengeBtn = document.getElementById('create-challenge-btn');
+
+    const defaultChallenges = [
+        { id: 'everest', title: 'Mount Everest', height: 8849, image: '/images/challenges/everest.png' },
+        { id: 'k2', title: 'K2', height: 8611, image: '/images/challenges/k2.png' },
+        { id: 'kilimanjaro', title: 'Mount Kilimanjaro', height: 5895, image: '/images/challenges/kilimanjaro.png' },
+        { id: 'montblanc', title: 'Mont Blanc', height: 4807, image: '/images/challenges/montblanc.png' }
     ];
 
-    if (syncBtn) {
-        syncBtn.addEventListener('click', () => {
-            // Animate
-            syncBtn.classList.add('spin');
+    function getAllChallenges() {
+        const custom = JSON.parse(localStorage.getItem('custom_challenges') || '[]');
+        return [...defaultChallenges, ...custom];
+    }
 
-            // Simulate Delay
-            setTimeout(() => {
-                syncBtn.classList.remove('spin');
+    function createCustomChallenge() {
+        const name = newChallengeName.value.trim();
+        const height = parseInt(newChallengeHeight.value);
 
-                // create random ride
-                const template = possibleRides[Math.floor(Math.random() * possibleRides.length)];
-                const randomOutput = Math.floor(Math.random() * (template.maxOutput - template.minOutput + 1)) + template.minOutput;
+        if (!name || !height || height <= 0) {
+            alert('Please enter a valid name and height.');
+            return;
+        }
 
-                const newWorkout = {
-                    id: Date.now(),
-                    date: 'Just now',
-                    title: template.title,
-                    output: randomOutput
-                };
+        const newChallenge = {
+            id: 'custom_' + Date.now(),
+            title: name,
+            height: height,
+            icon: '🚩' // Generic flag for custom goals
+        };
 
-                mockWorkouts.unshift(newWorkout);
-                localStorage.setItem('synced_workouts', JSON.stringify(mockWorkouts));
-                renderWorkouts();
+        const custom = JSON.parse(localStorage.getItem('custom_challenges') || '[]');
+        custom.push(newChallenge);
+        localStorage.setItem('custom_challenges', JSON.stringify(custom));
 
-                alert(`✅ Synced! Found new ride: ${template.title}`);
-            }, 1500);
+        renderChallenges();
+        alert(`🎯 Created goal: ${name}`);
+
+        newChallengeName.value = '';
+        newChallengeHeight.value = '';
+    }
+
+    if (createChallengeBtn) {
+        createChallengeBtn.addEventListener('click', createCustomChallenge);
+    }
+
+    function getActiveChallenge() {
+        return localStorage.getItem('active_challenge');
+    }
+
+    function getChallengeProgress() {
+        return JSON.parse(localStorage.getItem('challenge_progress') || '{}');
+    }
+
+    function renderChallenges() {
+        if (!challengesGrid) return;
+        challengesGrid.innerHTML = '';
+
+        const challengesData = getAllChallenges(); // Fetch combined list
+        const activeId = getActiveChallenge();
+        const progressMap = getChallengeProgress();
+
+        challengesData.forEach(challenge => {
+            const progress = progressMap[challenge.id] || 0;
+            const percentage = Math.min((progress / challenge.height) * 100, 100).toFixed(1);
+            const isActive = challenge.id === activeId;
+
+            const card = document.createElement('div');
+            card.className = `challenge-card ${isActive ? 'active-challenge' : ''}`;
+            card.innerHTML = `
+                <div class="challenge-header">
+                    ${challenge.image
+                    ? `<img src="${challenge.image}" alt="${challenge.title}" class="challenge-img">`
+                    : `<span class="challenge-icon">${challenge.icon}</span>`
+                }
+                    <div style="text-align: right;">
+                        <div class="challenge-title">${challenge.title}</div>
+                        <div class="challenge-height">${challenge.height}m</div>
+                    </div>
+                </div>
+                
+                <div class="challenge-progress-container">
+                    <div class="challenge-progress-bar" style="width: ${percentage}%"></div>
+                </div>
+                
+                <div class="challenge-stats">
+                    <span>${progress.toFixed(0)}m climbed</span>
+                    <span>${percentage}%</span>
+                </div>
+
+                <button class="btn-challenge ${isActive ? 'active-btn' : 'join'}" 
+                    data-id="${challenge.id}">
+                    ${isActive ? 'Active Challenge' : 'Join Challenge'}
+                </button>
+            `;
+            challengesGrid.appendChild(card);
         });
+
+        // Add Listeners
+        document.querySelectorAll('.btn-challenge.join').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = e.target.dataset.id;
+                localStorage.setItem('active_challenge', id);
+                renderChallenges();
+                const all = getAllChallenges();
+                alert(`🏔️ You are now climbing ${all.find(c => c.id === id).title}!`);
+            });
+        });
+
+        // Update Target Challenge Dropdown
+        if (targetChallengeSelect) {
+            targetChallengeSelect.innerHTML = '';
+            const all = getAllChallenges();
+            all.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.title;
+                if (c.id === activeId) opt.selected = true; // Default to active
+                targetChallengeSelect.appendChild(opt);
+            });
+        }
     }
 
     function renderWorkouts() {
         if (!workoutList) return;
         workoutList.innerHTML = '';
 
-        mockWorkouts.forEach(workout => {
+        if (workoutHistory.length === 0) {
+            workoutList.innerHTML = '<p style="color: grey; font-style: italic;">No workouts logged yet.</p>';
+            return;
+        }
+
+        workoutHistory.forEach(workout => {
             const item = document.createElement('div');
             item.className = 'workout-item';
+
+            const icon = getIconForType(workout.type) || '💪'; // Fallback icon
+
             item.innerHTML = `
                 <input type="checkbox" class="workout-checkbox" data-output="${workout.output}">
                 <div class="workout-info">
-                    <span class="workout-title">${workout.title}</span>
+                    <span class="workout-title">${icon} ${workout.title}</span>
                     <span class="workout-meta">${workout.date} • ${workout.output} kJ</span>
                 </div>
             `;
@@ -478,21 +641,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (addToChallengeBtn) {
         addToChallengeBtn.addEventListener('click', () => {
-            const total = updateChallengeSummary();
+            const totalKj = updateChallengeSummary();
+
+            // 1. Get Weight
+            let weight = parseFloat(profileWeightInput.value) || 80; // default 80kg
+            // Handle lbs conversion
+            const weightUnit = localStorage.getItem('unit_weight') || 'kg';
+            if (weightUnit === 'lbs') {
+                weight = weight * 0.453592;
+            }
+
+            const addedMeters = calculateElevation(totalKj, weight).meters;
+
+            // 3. Update Progress for TARGET challenge
+            const targetId = document.getElementById('target-challenge-select').value;
+            const progressMap = getChallengeProgress();
+
+            // Fix: Calculate new progress correctly
+            const currentProgress = progressMap[targetId] || 0;
+            const newProgress = currentProgress + addedMeters;
+
+            progressMap[targetId] = newProgress;
+            localStorage.setItem('challenge_progress', JSON.stringify(progressMap));
+
+            // 4. Update UI
+            renderChallenges();
 
             // Celebrate
-            confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: { y: 0.6 }
-            });
+            // confetti({
+            //     particleCount: 150,
+            //     spread: 100,
+            //     origin: { y: 0.6 }
+            // });
 
-            alert(`🔥 Awesome! Added ${total} kJ to your active challenge!`);
+            const all = getAllChallenges();
+            // Fix: Use addedMeters variable
+            alert(`🔥 Awesome! ${totalKj} kJ converted to ${addedMeters}m!\nAdded to ${all.find(c => c.id === targetId).title}.`);
 
-            // Optional: Auto-fill main calculator for fun
-            document.getElementById('output-kj').value = total;
-            // Switch to Climb tab to show potential
-            // document.querySelector('[data-tab="calculator"]').click();
+            // Switch tab to Challenges to see progress?
+            document.querySelector('[data-tab="challenges"]').click();
         });
     }
 
@@ -502,4 +689,5 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTheme();
     loadBadges();
     renderWorkouts();
+    renderChallenges();
 });
