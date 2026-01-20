@@ -309,6 +309,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (target === 'myworkouts') {
                 updateTargetChallengeSelect();
             }
+
+            // Refresh facts when viewing achievements
+            if (target === 'profile') {
+                renderAchievementFacts();
+            }
         });
     });
 
@@ -558,6 +563,120 @@ document.addEventListener('DOMContentLoaded', () => {
         unlockedBadges.forEach(id => updateBadgeUI(id));
     }
 
+    // --- Achievement Facts Logic ---
+    const climbingFacts = [
+        { threshold: 0, comparison: "Just getting started!" },
+        { threshold: 324, comparison: "Height of the Eiffel Tower 🗼" },
+        { threshold: 443, comparison: "Height of the Empire State Building 🏙️" },
+        { threshold: 828, comparison: "Height of Burj Khalifa (world's tallest building) 🏗️" },
+        { threshold: 2000, comparison: "2x the height of Burj Khalifa" },
+        { threshold: 4807, comparison: "Summit of Mont Blanc 🏔️" },
+        { threshold: 5895, comparison: "Summit of Mount Kilimanjaro 🦁" },
+        { threshold: 8611, comparison: "Summit of K2 ⛰️" },
+        { threshold: 8849, comparison: "Summit of Mount Everest! 🧗" },
+        { threshold: 10000, comparison: "Higher than Mount Everest! Into the stratosphere! ✈️" },
+        { threshold: 20000, comparison: "Twice the height of Everest!" },
+        { threshold: 30000, comparison: "You've climbed to cruising altitude! 🛫" }
+    ];
+
+    const distanceFacts = [
+        { threshold: 0, comparison: "Start your journey!" },
+        { threshold: 42.195, comparison: "Distance of a Marathon 🏃" },
+        { threshold: 100, comparison: "Distance of an Ultra Marathon 🏃‍♂️" },
+        { threshold: 160.9, comparison: "A Century Ride 🚴" },
+        { threshold: 400, comparison: "Distance from Los Angeles to San Francisco 🌉" },
+        { threshold: 1000, comparison: "Distance from New York to Miami ✈️" },
+        { threshold: 3500, comparison: "Distance of Tour de France 🇫🇷" },
+        { threshold: 4828, comparison: "Distance from Los Angeles to New York 🗽" },
+        { threshold: 9000, comparison: "Distance from Los Angeles to Paris 🇫🇷" },
+        { threshold: 12000, comparison: "Distance from London to Sydney 🦘" },
+        { threshold: 20000, comparison: "Halfway around the world 🌍" },
+        { threshold: 40075, comparison: "Around the entire Earth! 🌎" },
+        { threshold: 80000, comparison: "Around the world twice! 🚀" },
+        { threshold: 384400, comparison: "Distance to the Moon! 🌙" }
+    ];
+
+    function calculateTotalProgress() {
+        // Get default weight for elevation calculations
+        let defaultWeight = parseFloat(localStorage.getItem('bike_weight')) || 80;
+        const weightUnit = localStorage.getItem('unit_weight') || 'kg';
+        if (weightUnit === 'lbs') {
+            defaultWeight = defaultWeight * 0.453592; // Convert to kg
+        }
+
+        let totalClimbingMeters = 0;
+        let totalDistanceKm = 0;
+
+        // 1. Get totals from all workouts in history
+        const workoutHistory = JSON.parse(localStorage.getItem('workout_history') || '[]');
+
+        workoutHistory.forEach(workout => {
+            if (workout.metricType === 'output') {
+                // kJ output - convert to elevation
+                const elevationMeters = calculateElevation(workout.output, defaultWeight).meters;
+                totalClimbingMeters += elevationMeters;
+            } else if (workout.metricType === 'miles') {
+                // Miles - convert to km
+                totalDistanceKm += (workout.output * 1.60934);
+            }
+        });
+
+        return {
+            climbingMeters: totalClimbingMeters,
+            climbingFeet: totalClimbingMeters * 3.28084,
+            distanceKm: totalDistanceKm,
+            distanceMiles: totalDistanceKm * 0.621371
+        };
+    }
+
+    function findBestComparison(value, factsArray) {
+        // Find the highest threshold that the value has reached
+        let bestFact = factsArray[0];
+        for (let i = factsArray.length - 1; i >= 0; i--) {
+            if (value >= factsArray[i].threshold) {
+                bestFact = factsArray[i];
+                break;
+            }
+        }
+        return bestFact;
+    }
+
+    function renderAchievementFacts() {
+        const container = document.getElementById('achievement-facts-container');
+        if (!container) return;
+
+        const totals = calculateTotalProgress();
+        const climbingFact = findBestComparison(totals.climbingMeters, climbingFacts);
+        const distanceFact = findBestComparison(totals.distanceKm, distanceFacts);
+
+        // Get user's preferred units
+        const distanceUnit = localStorage.getItem('unit_distance') || 'km';
+
+        container.innerHTML = `
+            <div class="fact-card">
+                <div class="fact-icon">🏔️</div>
+                <div class="fact-content">
+                    <div class="fact-label">Total Climbing</div>
+                    <div class="fact-value">${totals.climbingMeters.toFixed(0)}m <span class="fact-alt-unit">(${totals.climbingFeet.toFixed(0)}ft)</span></div>
+                    <div class="fact-comparison">${climbingFact.comparison}</div>
+                </div>
+            </div>
+            <div class="fact-card">
+                <div class="fact-icon">🚴</div>
+                <div class="fact-content">
+                    <div class="fact-label">Total Distance</div>
+                    <div class="fact-value">
+                        ${distanceUnit === 'km'
+                ? `${totals.distanceKm.toFixed(1)}km <span class="fact-alt-unit">(${totals.distanceMiles.toFixed(1)}mi)</span>`
+                : `${totals.distanceMiles.toFixed(1)}mi <span class="fact-alt-unit">(${totals.distanceKm.toFixed(1)}km)</span>`
+            }
+                    </div>
+                    <div class="fact-comparison">${distanceFact.comparison}</div>
+                </div>
+            </div>
+        `;
+    }
+
     // --- Peloton Sync Logic ---
     const workoutList = document.getElementById('workout-list');
     const addToChallengeBtn = document.getElementById('add-to-challenge-btn');
@@ -767,6 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
             myChallenges = myChallenges.filter(c => c.instanceId !== instanceId);
             saveMyChallenges(myChallenges);
             renderMyChallenges();
+            renderAchievementFacts(); // Update facts after removing challenge
             showNotification('Removed', 'Challenge removed from your list.', '🗑️');
         });
     }
@@ -1434,6 +1554,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     myChallenges[instanceIndex] = instance;
                     saveMyChallenges(myChallenges);
                     renderMyChallenges(); // Update the specific tab UI
+                    renderAchievementFacts(); // Update facts with new progress
 
                     // 4. Update UI
                     renderChallenges();
@@ -1569,4 +1690,5 @@ document.addEventListener('DOMContentLoaded', () => {
     renderWorkouts();
     renderChallenges();
     renderMyChallenges();
+    renderAchievementFacts(); // Render facts in achievements tab
 });
