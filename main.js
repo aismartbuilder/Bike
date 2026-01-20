@@ -106,6 +106,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners : Auth Forms ---
 
+    // Auto-fill password when username is entered (if Remember Me was used before)
+    const loginUsernameInput = document.getElementById('login-username');
+    const loginPasswordInput = document.getElementById('login-password');
+    const loginRememberCheckbox = document.getElementById('login-remember');
+
+    if (loginUsernameInput && loginPasswordInput) {
+        loginUsernameInput.addEventListener('input', () => {
+            const username = loginUsernameInput.value.trim();
+            if (username) {
+                const savedCreds = localStorage.getItem('saved_credentials');
+                if (savedCreds) {
+                    try {
+                        const { username: savedUsername, password: savedPassword } = JSON.parse(savedCreds);
+                        if (savedUsername === username && savedPassword) {
+                            loginPasswordInput.value = savedPassword;
+                            if (loginRememberCheckbox) {
+                                loginRememberCheckbox.checked = true;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error reading saved credentials:', e);
+                    }
+                }
+            }
+        });
+    }
+
     document.getElementById('login-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const user = document.getElementById('login-username').value;
@@ -143,39 +170,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const resFeet = document.getElementById('res-feet');
     const resLandmark = document.getElementById('res-landmark');
 
-    calculateBtn.addEventListener('click', () => {
-        const totalOutput = parseFloat(outputInput.value);
-        let userWeight = parseFloat(weightInput.value);
+    // Only set up calculator if elements exist (to prevent errors in newer UI versions)
+    if (calculateBtn && outputInput && weightInput && resultsSection && resMeters && resFeet && resLandmark) {
+        calculateBtn.addEventListener('click', () => {
+            const totalOutput = parseFloat(outputInput.value);
+            let userWeight = parseFloat(weightInput.value);
 
-        // Handle Weight Unit - Toggle removed from HTML, defaulting to KG input
-        // const calcWeightUnit = 'kg'; 
-        // if (calcWeightUnit === 'lbs') {
-        //     userWeight = userWeight * 0.453592; // Convert lbs to kg
-        // }
+            // Check which weight unit is selected
+            const activeWeightUnit = document.querySelector('[data-unit-type="calc-weight"].active');
+            const calcWeightUnit = activeWeightUnit ? activeWeightUnit.dataset.unit : 'kg';
 
-        if (isNaN(totalOutput) || isNaN(userWeight) || totalOutput < 0 || userWeight < 0) {
-            alert('Please enter valid positive numbers for both fields.');
-            return;
-        }
+            // Convert lbs to kg if needed
+            if (calcWeightUnit === 'lbs') {
+                userWeight = userWeight * 0.453592; // Convert lbs to kg
+            }
 
-        const result = calculateElevation(totalOutput, userWeight);
+            if (isNaN(totalOutput) || isNaN(userWeight) || totalOutput < 0 || userWeight < 0) {
+                alert('Please enter valid positive numbers for both fields.');
+                return;
+            }
 
-        // Update UI
-        resMeters.textContent = result.meters;
-        resFeet.textContent = result.feet;
-        resLandmark.textContent = result.landmark;
+            const result = calculateElevation(totalOutput, userWeight);
 
-        // Show results
-        resultsSection.classList.remove('hidden');
+            // Update UI
+            resMeters.textContent = result.meters;
+            resFeet.textContent = result.feet;
+            resLandmark.textContent = result.landmark;
 
-        // Check for achievements
-        checkBadges(result.meters);
-    });
+            // Show results
+            resultsSection.classList.remove('hidden');
+
+            // Check for achievements
+            checkBadges(result.meters);
+        });
+    }
 
     // --- Tab Switching Logic ---
     const tabs = document.querySelectorAll('.tab-btn');
     const tabContents = {
-        calculator: document.getElementById('tab-calculator'),
+        myworkouts: document.getElementById('tab-myworkouts'),
+        mychallenges: document.getElementById('tab-mychallenges'),
         profile: document.getElementById('tab-profile'),
         challenges: document.getElementById('tab-challenges')
     };
@@ -224,10 +258,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update Labels/Placeholders (Optional, but good UX)
         if (type === 'weight') {
-            document.querySelector("label[for='profile-weight']").textContent = `Default Weight`;
-            document.querySelector("label[for='user-weight']").textContent = `Your Weight (${unit})`;
+            const profileLabel = document.querySelector("label[for='profile-weight']");
+            if (profileLabel) profileLabel.textContent = `Default Weight`;
+
+            const calcLabel = document.querySelector("label[for='user-weight']");
+            if (calcLabel) calcLabel.textContent = `Your Weight (${unit})`;
         } else {
-            document.querySelector("label[for='profile-goal']").textContent = `Weekly Goal`;
+            const goalLabel = document.querySelector("label[for='profile-goal']");
+            if (goalLabel) goalLabel.textContent = `Weekly Goal`;
         }
     }
 
@@ -246,6 +284,26 @@ document.addEventListener('DOMContentLoaded', () => {
         // Let's just handle the active class switch.
     }));
     distanceToggles.forEach(t => t.addEventListener('click', () => setUnit('distance', t.dataset.unit)));
+
+    // Workout Metric Toggle (Output vs Miles)
+    const workoutMetricToggles = document.querySelectorAll('[data-unit-type="workout-metric"]');
+
+    if (workoutMetricToggles.length > 0) {
+        workoutMetricToggles.forEach(t => t.addEventListener('click', () => {
+            workoutMetricToggles.forEach(btn => btn.classList.remove('active'));
+            t.classList.add('active');
+
+            // Update placeholder (logOutputInput is declared later in the file)
+            const outputField = document.getElementById('log-output');
+            if (outputField) {
+                if (t.dataset.unit === 'output') {
+                    outputField.placeholder = 'Enter kJ';
+                } else {
+                    outputField.placeholder = 'Enter miles';
+                }
+            }
+        }));
+    }
 
     // Load Settings
     function loadSettings() {
@@ -405,14 +463,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const challengeSummary = document.getElementById('challenge-summary');
 
     // New Form Elements
-    const logTypeInput = document.getElementById('log-type');
-    const logDateInput = document.getElementById('log-date');
-    const logDescInput = document.getElementById('log-desc');
-    const logOutputInput = document.getElementById('log-output');
-    const logBtn = document.getElementById('log-workout-btn');
+    const logTypeInput = document.getElementById('challenge-log-type');
+    const logDateInput = document.getElementById('challenge-log-date');
+    const logDescInput = document.getElementById('challenge-log-desc');
+    const logOutputInput = document.getElementById('challenge-log-output');
+    const logBtn = document.getElementById('challenge-log-workout-btn');
     const targetChallengeSelect = document.getElementById('target-challenge-select');
     // workoutList already defined above
     // profileWeightInput already defined above
+
+    // Workout Metric Toggle
+    let currentWorkoutMetric = 'output'; // 'output' or 'miles'
+
+    // Handle workout metric toggle
+    document.querySelectorAll('[data-unit-type="workout-metric"]').forEach(option => {
+        option.addEventListener('click', function () {
+            const selectedUnit = this.dataset.unit;
+
+            // Update active states
+            document.querySelectorAll('[data-unit-type="workout-metric"]').forEach(opt => {
+                opt.classList.remove('active');
+            });
+            this.classList.add('active');
+
+            // Update current metric
+            currentWorkoutMetric = selectedUnit;
+
+            // Update placeholder
+            if (selectedUnit === 'output') {
+                logOutputInput.placeholder = 'Output (kJ)';
+            } else {
+                logOutputInput.placeholder = 'Miles';
+            }
+        });
+    });
 
     let workoutHistory = JSON.parse(localStorage.getItem('workout_history') || '[]');
 
@@ -433,10 +517,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const type = logTypeInput.value;
         const date = logDateInput.value || new Date().toISOString().split('T')[0];
         const desc = logDescInput.value.trim();
-        const output = parseInt(logOutputInput.value);
+        const value = parseFloat(logOutputInput.value);
 
-        if (!desc || !output || output <= 0) {
-            alert('Please enter a description and valid output.');
+        if (!desc || !value || value <= 0) {
+            alert('Please enter a description and valid value.');
             return;
         }
 
@@ -445,7 +529,8 @@ document.addEventListener('DOMContentLoaded', () => {
             type,
             date,
             title: desc,
-            output
+            output: value,
+            metricType: currentWorkoutMetric // Store which metric was used
         };
 
         workoutHistory.unshift(newWorkout);
@@ -467,28 +552,76 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Challenges Logic ---
-    const challengesGrid = document.getElementById('challenges-grid');
+    const climbingChallengesGrid = document.getElementById('climbing-challenges-grid');
+    const distanceChallengesGrid = document.getElementById('distance-challenges-grid');
 
-    // New Challenge Inputs
-    const newChallengeName = document.getElementById('new-challenge-name');
-    const newChallengeHeight = document.getElementById('new-challenge-height');
-    const createChallengeBtn = document.getElementById('create-challenge-btn');
+    // Challenge Type Tabs
+    const challengeTypeBtns = document.querySelectorAll('.challenge-type-btn');
+    const climbingSection = document.getElementById('climbing-challenges-section');
+    const distanceSection = document.getElementById('distance-challenges-section');
 
-    const defaultChallenges = [
-        { id: 'everest', title: 'Mount Everest', height: 8849, image: '/images/challenges/everest.png' },
-        { id: 'k2', title: 'K2', height: 8611, image: '/images/challenges/k2.png' },
-        { id: 'kilimanjaro', title: 'Mount Kilimanjaro', height: 5895, image: '/images/challenges/kilimanjaro.png' },
-        { id: 'montblanc', title: 'Mont Blanc', height: 4807, image: '/images/challenges/montblanc.png' }
+    // Climbing Challenge Inputs
+    const newClimbingChallengeName = document.getElementById('new-climbing-challenge-name');
+    const newClimbingChallengeHeight = document.getElementById('new-climbing-challenge-height');
+    const createClimbingChallengeBtn = document.getElementById('create-climbing-challenge-btn');
+
+    // Distance Challenge Inputs
+    const newDistanceChallengeName = document.getElementById('new-distance-challenge-name');
+    const newDistanceChallengeDistance = document.getElementById('new-distance-challenge-distance');
+    const createDistanceChallengeBtn = document.getElementById('create-distance-challenge-btn');
+
+    // Default Challenges
+    const defaultClimbingChallenges = [
+        { id: 'everest', title: 'Mount Everest', height: 8849, type: 'climbing', image: '/images/challenges/everest.png' },
+        { id: 'k2', title: 'K2', height: 8611, type: 'climbing', image: '/images/challenges/k2.png' },
+        { id: 'kilimanjaro', title: 'Mount Kilimanjaro', height: 5895, type: 'climbing', image: '/images/challenges/kilimanjaro.png' },
+        { id: 'montblanc', title: 'Mont Blanc', height: 4807, type: 'climbing', image: '/images/challenges/montblanc.png' }
     ];
 
-    function getAllChallenges() {
-        const custom = JSON.parse(localStorage.getItem('custom_challenges') || '[]');
-        return [...defaultChallenges, ...custom];
+    const defaultDistanceChallenges = [
+        { id: 'marathon', title: 'Marathon', distance: 42.195, type: 'distance', icon: '🏃' },
+        { id: 'ultra', title: 'Ultra Marathon', distance: 100, type: 'distance', icon: '🏃‍♂️' },
+        { id: 'century', title: 'Century Ride', distance: 160.9, type: 'distance', icon: '🚴' },
+        { id: 'cross-country', title: 'Cross Country', distance: 500, type: 'distance', icon: '🌍' }
+    ];
+
+    function getAllClimbingChallenges() {
+        const custom = JSON.parse(localStorage.getItem('custom_climbing_challenges') || '[]');
+        return [...defaultClimbingChallenges, ...custom];
     }
 
-    function createCustomChallenge() {
-        const name = newChallengeName.value.trim();
-        const height = parseInt(newChallengeHeight.value);
+    function getAllDistanceChallenges() {
+        const custom = JSON.parse(localStorage.getItem('custom_distance_challenges') || '[]');
+        return [...defaultDistanceChallenges, ...custom];
+    }
+
+    function getAllChallenges() {
+        return [...getAllClimbingChallenges(), ...getAllDistanceChallenges()];
+    }
+
+    // Challenge Type Tab Switching
+    challengeTypeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const type = btn.dataset.challengeType;
+
+            // Update button states
+            challengeTypeBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Update section visibility
+            if (type === 'climbing') {
+                climbingSection.classList.remove('hidden');
+                distanceSection.classList.add('hidden');
+            } else {
+                climbingSection.classList.add('hidden');
+                distanceSection.classList.remove('hidden');
+            }
+        });
+    });
+
+    function createCustomClimbingChallenge() {
+        const name = newClimbingChallengeName.value.trim();
+        const height = parseInt(newClimbingChallengeHeight.value);
 
         if (!name || !height || height <= 0) {
             alert('Please enter a valid name and height.');
@@ -496,25 +629,58 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const newChallenge = {
-            id: 'custom_' + Date.now(),
+            id: 'custom_climbing_' + Date.now(),
             title: name,
             height: height,
-            icon: '🚩' // Generic flag for custom goals
+            type: 'climbing',
+            icon: '🚩'
         };
 
-        const custom = JSON.parse(localStorage.getItem('custom_challenges') || '[]');
+        const custom = JSON.parse(localStorage.getItem('custom_climbing_challenges') || '[]');
         custom.push(newChallenge);
-        localStorage.setItem('custom_challenges', JSON.stringify(custom));
+        localStorage.setItem('custom_climbing_challenges', JSON.stringify(custom));
 
         renderChallenges();
-        alert(`🎯 Created goal: ${name}`);
+        alert(`🎯 Created climbing goal: ${name}`);
 
-        newChallengeName.value = '';
-        newChallengeHeight.value = '';
+        newClimbingChallengeName.value = '';
+        newClimbingChallengeHeight.value = '';
     }
 
-    if (createChallengeBtn) {
-        createChallengeBtn.addEventListener('click', createCustomChallenge);
+    function createCustomDistanceChallenge() {
+        const name = newDistanceChallengeName.value.trim();
+        const distance = parseFloat(newDistanceChallengeDistance.value);
+
+        if (!name || !distance || distance <= 0) {
+            alert('Please enter a valid name and distance.');
+            return;
+        }
+
+        const newChallenge = {
+            id: 'custom_distance_' + Date.now(),
+            title: name,
+            distance: distance,
+            type: 'distance',
+            icon: '🎯'
+        };
+
+        const custom = JSON.parse(localStorage.getItem('custom_distance_challenges') || '[]');
+        custom.push(newChallenge);
+        localStorage.setItem('custom_distance_challenges', JSON.stringify(custom));
+
+        renderChallenges();
+        alert(`🎯 Created distance goal: ${name}`);
+
+        newDistanceChallengeName.value = '';
+        newDistanceChallengeDistance.value = '';
+    }
+
+    if (createClimbingChallengeBtn) {
+        createClimbingChallengeBtn.addEventListener('click', createCustomClimbingChallenge);
+    }
+
+    if (createDistanceChallengeBtn) {
+        createDistanceChallengeBtn.addEventListener('click', createCustomDistanceChallenge);
     }
 
     function getActiveChallenge() {
@@ -526,57 +692,107 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderChallenges() {
-        if (!challengesGrid) return;
-        challengesGrid.innerHTML = '';
+        // Render Climbing Challenges
+        if (climbingChallengesGrid) {
+            climbingChallengesGrid.innerHTML = '';
+            const climbingChallenges = getAllClimbingChallenges();
+            const activeId = getActiveChallenge();
+            const progressMap = getChallengeProgress();
 
-        const challengesData = getAllChallenges(); // Fetch combined list
-        const activeId = getActiveChallenge();
-        const progressMap = getChallengeProgress();
+            climbingChallenges.forEach(challenge => {
+                const progress = progressMap[challenge.id] || 0;
+                const percentage = Math.min((progress / challenge.height) * 100, 100).toFixed(1);
+                const isActive = challenge.id === activeId;
 
-        challengesData.forEach(challenge => {
-            const progress = progressMap[challenge.id] || 0;
-            const percentage = Math.min((progress / challenge.height) * 100, 100).toFixed(1);
-            const isActive = challenge.id === activeId;
-
-            const card = document.createElement('div');
-            card.className = `challenge-card ${isActive ? 'active-challenge' : ''}`;
-            card.innerHTML = `
-                <div class="challenge-header">
-                    ${challenge.image
-                    ? `<img src="${challenge.image}" alt="${challenge.title}" class="challenge-img">`
-                    : `<span class="challenge-icon">${challenge.icon}</span>`
-                }
-                    <div style="text-align: right;">
-                        <div class="challenge-title">${challenge.title}</div>
-                        <div class="challenge-height">${challenge.height}m</div>
+                const card = document.createElement('div');
+                card.className = `challenge-card ${isActive ? 'active-challenge' : ''}`;
+                card.innerHTML = `
+                    <div class="challenge-header">
+                        ${challenge.image
+                        ? `<img src="${challenge.image}" alt="${challenge.title}" class="challenge-img">`
+                        : `<span class="challenge-icon">${challenge.icon}</span>`
+                    }
+                        <div style="text-align: right;">
+                            <div class="challenge-title">${challenge.title}</div>
+                            <div class="challenge-height">${challenge.height}m</div>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="challenge-progress-container">
-                    <div class="challenge-progress-bar" style="width: ${percentage}%"></div>
-                </div>
-                
-                <div class="challenge-stats">
-                    <span>${progress.toFixed(0)}m climbed</span>
-                    <span>${percentage}%</span>
-                </div>
+                    
+                    <div class="challenge-progress-container">
+                        <div class="challenge-progress-bar" style="width: ${percentage}%"></div>
+                    </div>
+                    
+                    <div class="challenge-stats">
+                        <span>${progress.toFixed(0)}m climbed</span>
+                        <span>${percentage}%</span>
+                    </div>
 
-                <button class="btn-challenge ${isActive ? 'active-btn' : 'join'}" 
-                    data-id="${challenge.id}">
-                    ${isActive ? 'Active Challenge' : 'Join Challenge'}
-                </button>
-            `;
-            challengesGrid.appendChild(card);
-        });
+                    <button class="btn-challenge ${isActive ? 'active-btn' : 'join'}" 
+                        data-id="${challenge.id}">
+                        ${isActive ? 'Active Challenge' : 'Join Challenge'}
+                    </button>
+                `;
+                climbingChallengesGrid.appendChild(card);
+            });
+        }
 
-        // Add Listeners
+        // Render Distance Challenges
+        if (distanceChallengesGrid) {
+            distanceChallengesGrid.innerHTML = '';
+            const distanceChallenges = getAllDistanceChallenges();
+            const activeId = getActiveChallenge();
+            const progressMap = getChallengeProgress();
+
+            distanceChallenges.forEach(challenge => {
+                const progress = progressMap[challenge.id] || 0;
+                const percentage = Math.min((progress / challenge.distance) * 100, 100).toFixed(1);
+                const isActive = challenge.id === activeId;
+
+                const card = document.createElement('div');
+                card.className = `challenge-card ${isActive ? 'active-challenge' : ''}`;
+                card.innerHTML = `
+                    <div class="challenge-header">
+                        ${challenge.image
+                        ? `<img src="${challenge.image}" alt="${challenge.title}" class="challenge-img">`
+                        : `<span class="challenge-icon">${challenge.icon}</span>`
+                    }
+                        <div style="text-align: right;">
+                            <div class="challenge-title">${challenge.title}</div>
+                            <div class="challenge-height">${challenge.distance}km</div>
+                        </div>
+                    </div>
+                    
+                    <div class="challenge-progress-container">
+                        <div class="challenge-progress-bar" style="width: ${percentage}%"></div>
+                    </div>
+                    
+                    <div class="challenge-stats">
+                        <span>${progress.toFixed(1)}km covered</span>
+                        <span>${percentage}%</span>
+                    </div>
+
+                    <button class="btn-challenge ${isActive ? 'active-btn' : 'join'}" 
+                        data-id="${challenge.id}">
+                        ${isActive ? 'Active Challenge' : 'Join Challenge'}
+                    </button>
+                `;
+                distanceChallengesGrid.appendChild(card);
+            });
+        }
+
+        // Add Listeners for both types
         document.querySelectorAll('.btn-challenge.join').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const id = e.target.dataset.id;
                 localStorage.setItem('active_challenge', id);
                 renderChallenges();
                 const all = getAllChallenges();
-                alert(`🏔️ You are now climbing ${all.find(c => c.id === id).title}!`);
+                const challenge = all.find(c => c.id === id);
+                if (challenge.type === 'climbing') {
+                    alert(`🏔️ You are now climbing ${challenge.title}!`);
+                } else {
+                    alert(`🏃 You are now pursuing ${challenge.title}!`);
+                }
             });
         });
 
@@ -588,11 +804,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const opt = document.createElement('option');
                 opt.value = c.id;
                 opt.textContent = c.title;
-                if (c.id === activeId) opt.selected = true; // Default to active
+                if (c.id === activeId) opt.selected = true;
                 targetChallengeSelect.appendChild(opt);
             });
         }
     }
+
+    let editingWorkoutId = null;
 
     function renderWorkouts() {
         if (!workoutList) return;
@@ -607,15 +825,43 @@ document.addEventListener('DOMContentLoaded', () => {
             const item = document.createElement('div');
             item.className = 'workout-item';
 
-            const icon = getIconForType(workout.type) || '💪'; // Fallback icon
+            // Check if this workout is being edited
+            if (editingWorkoutId === workout.id) {
+                // Render Edit Form
+                item.innerHTML = `
+                    <div class="workout-edit-form">
+                        <input type="text" id="edit-desc-${workout.id}" class="manual-input" value="${workout.title}" style="flex: 2;">
+                        <input type="date" id="edit-date-${workout.id}" class="manual-input" value="${workout.date}" style="width: auto;">
+                        <div style="display: flex; gap: 0.2rem; flex: 1;">
+                            <input type="number" id="edit-val-${workout.id}" class="manual-input" value="${workout.output}" style="flex: 1;">
+                            <select id="edit-metric-${workout.id}" class="manual-input" style="width: auto;">
+                                <option value="output" ${workout.metricType !== 'miles' ? 'selected' : ''}>kJ</option>
+                                <option value="miles" ${workout.metricType === 'miles' ? 'selected' : ''}>mi</option>
+                            </select>
+                        </div>
+                        <div class="workout-actions">
+                            <button class="btn-icon save" data-id="${workout.id}" title="Save">💾</button>
+                            <button class="btn-icon cancel" title="Cancel">❌</button>
+                            <button class="btn-icon delete" data-id="${workout.id}" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Render Normal View (with Edit Button)
+                const icon = getIconForType(workout.type) || '💪';
+                const unitLabel = workout.metricType === 'miles' ? 'mi' : 'kJ';
 
-            item.innerHTML = `
-                <input type="checkbox" class="workout-checkbox" data-output="${workout.output}">
-                <div class="workout-info">
-                    <span class="workout-title">${icon} ${workout.title}</span>
-                    <span class="workout-meta">${workout.date} • ${workout.output} kJ</span>
-                </div>
-            `;
+                item.innerHTML = `
+                    <input type="checkbox" class="workout-checkbox" data-output="${workout.output}">
+                    <div class="workout-info">
+                        <span class="workout-title">${icon} ${workout.title}</span>
+                        <span class="workout-meta">${workout.date} • ${workout.output} ${unitLabel}</span>
+                    </div>
+                    <div class="workout-actions">
+                         <button class="btn-icon edit" data-id="${workout.id}" title="Edit">✏️</button>
+                    </div>
+                `;
+            }
             workoutList.appendChild(item);
         });
 
@@ -623,6 +869,77 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.workout-checkbox').forEach(cb => {
             cb.addEventListener('change', updateChallengeSummary);
         });
+
+        // Edit Button Listeners
+        document.querySelectorAll('.btn-icon.edit').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                editingWorkoutId = parseInt(e.currentTarget.dataset.id);
+                renderWorkouts();
+            });
+        });
+
+        // Save Button Listeners
+        document.querySelectorAll('.btn-icon.save').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                saveWorkout(parseInt(e.currentTarget.dataset.id));
+            });
+        });
+
+        // Cancel Button Listeners
+        document.querySelectorAll('.btn-icon.cancel').forEach(btn => {
+            btn.addEventListener('click', () => {
+                editingWorkoutId = null;
+                renderWorkouts();
+            });
+        });
+
+        // Delete Button Listeners
+        document.querySelectorAll('.btn-icon.delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (confirm('Are you sure you want to delete this workout?')) {
+                    deleteWorkout(parseInt(e.currentTarget.dataset.id));
+                }
+            });
+        });
+    }
+
+    function saveWorkout(id) {
+        const descInput = document.getElementById(`edit-desc-${id}`);
+        const dateInput = document.getElementById(`edit-date-${id}`);
+        const valInput = document.getElementById(`edit-val-${id}`);
+        const metricSelect = document.getElementById(`edit-metric-${id}`);
+
+        if (descInput && dateInput && valInput && metricSelect) {
+            const newTitle = descInput.value.trim();
+            const newDate = dateInput.value;
+            const newVal = parseFloat(valInput.value);
+            const newMetric = metricSelect.value;
+
+            if (!newTitle || newVal <= 0) {
+                alert('Please enter valid data.');
+                return;
+            }
+
+            // Find and update
+            const index = workoutHistory.findIndex(w => w.id === id);
+            if (index !== -1) {
+                workoutHistory[index].title = newTitle;
+                workoutHistory[index].date = newDate;
+                workoutHistory[index].output = newVal;
+                workoutHistory[index].metricType = newMetric;
+
+                localStorage.setItem('workout_history', JSON.stringify(workoutHistory));
+                editingWorkoutId = null;
+                renderWorkouts();
+            }
+        }
+    }
+
+    function deleteWorkout(id) {
+        workoutHistory = workoutHistory.filter(w => w.id !== id);
+        localStorage.setItem('workout_history', JSON.stringify(workoutHistory));
+        editingWorkoutId = null;
+        renderWorkouts();
     }
 
     function updateChallengeSummary() {
@@ -683,7 +1000,56 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Migration Logic ---
+    function migrateLegacyData() {
+        // 1. Migrate 'custom_challenges' to 'custom_climbing_challenges' (assuming they are climbing if they have height)
+        const legacyCustom = JSON.parse(localStorage.getItem('custom_challenges') || '[]');
+        if (legacyCustom.length > 0) {
+            console.log('Migrating legacy custom challenges...', legacyCustom);
+            let climbing = JSON.parse(localStorage.getItem('custom_climbing_challenges') || '[]');
+
+            legacyCustom.forEach(c => {
+                // Avoid duplicates by ID or Title
+                if (!climbing.some(existing => existing.id === c.id || existing.title === c.title)) {
+                    // Ensure it has the correct type
+                    c.type = c.type || 'climbing';
+                    // Remap 'name' to 'title' if needed (based on what I saw in browser check: name="Mount Fuji")
+                    if (!c.title && c.name) c.title = c.name;
+
+                    climbing.push(c);
+                }
+            });
+
+            localStorage.setItem('custom_climbing_challenges', JSON.stringify(climbing));
+            // Rename legacy key to avoid re-running, but keep backup
+            localStorage.setItem('backup_custom_challenges', JSON.stringify(legacyCustom));
+            localStorage.removeItem('custom_challenges');
+            alert('Restored your old custom challenges! (Migrated from legacy format)');
+        }
+
+        // 2. Check 'challenges' key just in case (another legacy key found)
+        const legacyChallenges = JSON.parse(localStorage.getItem('challenges') || '[]');
+        if (legacyChallenges.length > 0) {
+            console.log('Migrating legacy "challenges"...', legacyChallenges);
+            let climbing = JSON.parse(localStorage.getItem('custom_climbing_challenges') || '[]');
+
+            legacyChallenges.forEach(c => {
+                if (c.isCustom) {
+                    if (!climbing.some(existing => existing.id === c.id || existing.title === c.title || existing.title === c.name)) {
+                        c.type = c.type || 'climbing';
+                        if (!c.title && c.name) c.title = c.name;
+                        climbing.push(c);
+                    }
+                }
+            });
+            localStorage.setItem('custom_climbing_challenges', JSON.stringify(climbing));
+            localStorage.setItem('backup_challenges', JSON.stringify(legacyChallenges));
+            localStorage.removeItem('challenges');
+        }
+    }
+
     // --- Init ---
+    migrateLegacyData(); // Run migration before rendering
     checkAuth();
     loadSettings();
     loadTheme();

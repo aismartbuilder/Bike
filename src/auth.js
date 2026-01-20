@@ -27,10 +27,12 @@ export const auth = {
         // Or we could strictly check against what was just signed up, but that's brittle for a demo
 
         // Let's just set the user for this session
-        const user = { username };
+        const user = { username, password: remember ? password : undefined };
 
         if (remember) {
             localStorage.setItem('bike_user', JSON.stringify(user));
+            // Also save credentials separately for auto-fill
+            localStorage.setItem('saved_credentials', JSON.stringify({ username, password }));
         } else {
             sessionStorage.setItem('bike_user', JSON.stringify(user));
         }
@@ -40,5 +42,6 @@ export const auth = {
     logout() {
         localStorage.removeItem('bike_user');
         sessionStorage.removeItem('bike_user');
+        localStorage.removeItem('saved_credentials');
     }
 };

@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fitness Physics Engine</title>
+  <title>Elevation|Destination</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -20,8 +20,8 @@
   <!-- LANDING PAGE -->
   <div id="landing-view" class="view-section">
     <div class="hero">
-      <h1>Turn Sweat into Summits 🏔️</h1>
-      <p>Convert your stationary bike output into real-world climbing achievements.</p>
+      <h1>Elevation|Destination</h1>
+      <p>Turn Sweat into Summits. Convert your workouts to real-world achievements.</p>
       <div class="cta-group">
         <button id="landing-signup-btn" class="btn btn-primary">Start Climbing</button>
         <button id="landing-login-btn" class="btn btn-secondary">Login</button>
@@ -101,8 +101,8 @@
       <div class="header-top"
         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <div class="brand">
-          <h1>Fitness Physics Engine</h1>
-          <p>Convert your Peloton output into real-world achievements.</p>
+          <h1>Elevation|Destination</h1>
+          <p>Turn Sweat into Summits. Convert your workouts to real-world achievements.</p>
         </div>
 
         <div class="user-controls">
@@ -153,46 +153,66 @@
 
       <!-- Tab Navigation -->
       <div class="tab-nav">
-        <button class="tab-btn active" data-tab="calculator">Climb</button>
+        <button class="tab-btn active" data-tab="myworkouts">My Workouts</button>
+        <button class="tab-btn" data-tab="mychallenges">My Challenges</button>
         <button class="tab-btn" data-tab="challenges">Challenges</button>
         <button class="tab-btn" data-tab="profile">Achievements</button>
       </div>
     </header>
 
     <main>
-      <!-- CALCULATOR TAB -->
-      <div id="tab-calculator" class="tab-content active">
-        <div class="card input-section">
-          <div class="input-group">
-            <label for="output-kj">Total Output (kJ)</label>
-            <input type="number" id="output-kj" placeholder="e.g. 400" min="0">
-          </div>
+      <!-- MY WORKOUTS TAB -->
+      <div id="tab-myworkouts" class="tab-content active">
+        <div class="card" style="margin-top: 0;">
+          <h2>Workouts</h2>
+          <p>Log your activities and assign them to challenges.</p>
 
-          <div class="input-group">
-            <label for="user-weight">Your Weight (kg)</label>
-            <input type="number" id="user-weight" placeholder="e.g. 80" min="0">
-          </div>
-
-          <button id="calculate-btn" class="btn btn-primary">Calculate Climb</button>
-        </div>
-
-        <div id="results" class="card results-section hidden">
-          <h2>Your Vertical Climb</h2>
-
-          <div class="stats-grid">
-            <div class="stat-box">
-              <span class="stat-value" id="res-meters">0</span>
-              <span class="stat-label">Meters</span>
+          <div class="workout-log-container" style="margin-top: 2rem;">
+            <!-- New Detailed Form -->
+            <div class="workout-log-form">
+              <div class="form-row">
+                <select id="challenge-log-type" class="manual-input">
+                  <option value="bike">🚴 Bike</option>
+                  <option value="run">🏃 Run</option>
+                  <option value="walk">🚶 Walk</option>
+                  <option value="hike">🥾 Hike</option>
+                </select>
+                <input type="date" id="challenge-log-date" class="manual-input">
+              </div>
+              <div class="form-row">
+                <input type="text" id="challenge-log-desc" placeholder="Description (e.g. Morning 5K)"
+                  class="manual-input" style="flex: 1;">
+              </div>
+              <div class="form-row" style="align-items: center;">
+                <input type="number" id="challenge-log-output" placeholder="Output (kJ)" class="manual-input"
+                  style="flex: 1;">
+                <div class="unit-toggle" style="flex: 0 0 auto;">
+                  <span class="unit-option active" data-unit-type="workout-metric" data-unit="output">kJ</span>
+                  <span class="unit-option" data-unit-type="workout-metric" data-unit="miles">mi</span>
+                </div>
+              </div>
+              <button id="challenge-log-workout-btn" class="btn btn-secondary"
+                style="width: 100%; margin-top: 0.5rem;">Log
+                Workout</button>
             </div>
-            <div class="stat-box">
-              <span class="stat-value" id="res-feet">0</span>
-              <span class="stat-label">Feet</span>
-            </div>
-          </div>
 
-          <div class="landmark-container">
-            <h3>Perspective</h3>
-            <p id="res-landmark">...</p>
+            <div class="workouts-container">
+              <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Recent Logs</h3>
+              <div id="workout-list">
+                <!-- Workouts injected here -->
+              </div>
+            </div>
+
+            <div class="challenge-controls">
+              <div class="control-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <select id="target-challenge-select" class="manual-input" style="flex: 1;">
+                  <!-- Options injected by JS -->
+                </select>
+              </div>
+              <p id="challenge-summary" style="margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted);">0 kJ
+                selected</p>
+              <button id="add-to-challenge-btn" class="btn btn-primary" disabled>Add to Challenge</button>
+            </div>
           </div>
         </div>
       </div>
@@ -231,72 +251,77 @@
 
       </div>
 
+      <!-- MY CHALLENGES TAB -->
+      <div id="tab-mychallenges" class="tab-content hidden">
+        <div class="card" style="margin-top: 0;">
+          <h2>My Active Challenge</h2>
+          <p class="description">Your current climbing goal and progress.</p>
+
+          <div id="active-challenge-display" style="margin-top: 2rem;">
+            <div style="text-align: center; padding: 3rem 0; color: var(--text-muted);">
+              <span style="font-size: 3rem;">🏔️</span>
+              <p style="margin-top: 1rem;">No active challenge selected.</p>
+              <p style="font-size: 0.9rem;">Visit the Challenges tab to start climbing!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="tab-challenges" class="tab-content hidden">
         <div class="card challenges-section">
-          <h2>Climbing Challenges</h2>
-          <p class="description">Select a summit to conquer. All your rides count towards the active challenge.</p>
+          <h2>Challenges</h2>
+          <p class="description">Choose a challenge type and set your goal.</p>
 
-          <div id="challenges-grid" class="challenges-grid">
-            <!-- Challenge Cards Injected by JS -->
+          <!-- Challenge Type Tabs -->
+          <div class="challenge-type-tabs"
+            style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem;">
+            <button class="challenge-type-btn active" data-challenge-type="climbing">🏔️ Climbing</button>
+            <button class="challenge-type-btn" data-challenge-type="distance">🏃 Distance</button>
           </div>
-        </div>
 
-        <!-- Create Challenge Form -->
-        <div class="card create-challenge-section" style="margin-top: 1rem;">
-          <h3>Create Custom Goal</h3>
-          <div class="create-challenge-container"
-            style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
-            <div class="form-row">
-              <input type="text" id="new-challenge-name" placeholder="Goal Name (e.g. Local Hill)" class="manual-input"
-                style="flex: 2;">
-              <input type="number" id="new-challenge-height" placeholder="Height (m)" class="manual-input"
-                style="flex: 1;">
-              <button id="create-challenge-btn" class="btn btn-secondary" style="flex: 0 0 auto;">+</button>
+          <!-- Climbing Challenges Section -->
+          <div id="climbing-challenges-section" class="challenge-type-section">
+            <h3 style="margin-bottom: 1rem;">Climbing Challenges</h3>
+            <p class="description" style="margin-bottom: 1rem;">Select a summit to conquer. All your workouts count
+              towards the active challenge.</p>
+            <div id="climbing-challenges-grid" class="challenges-grid">
+              <!-- Climbing Challenge Cards Injected by JS -->
+            </div>
+
+            <!-- Create Custom Climbing Challenge -->
+            <div class="create-challenge-section"
+              style="margin-top: 1rem; background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
+              <h4 style="margin-bottom: 0.5rem;">Create Custom Climbing Goal</h4>
+              <div class="form-row">
+                <input type="text" id="new-climbing-challenge-name" placeholder="Goal Name (e.g. Local Hill)"
+                  class="manual-input" style="flex: 2;">
+                <input type="number" id="new-climbing-challenge-height" placeholder="Height (m)" class="manual-input"
+                  style="flex: 1;">
+                <button id="create-climbing-challenge-btn" class="btn btn-secondary" style="flex: 0 0 auto;">+</button>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="card apps-section" style="margin-top: 2rem;">
-          <h2>Workouts</h2>
-          <p>Log your activities and assign them to challenges.</p>
-
-          <div class="workout-log-container">
-            <!-- New Detailed Form -->
-            <div class="workout-log-form">
-              <div class="form-row">
-                <select id="log-type" class="manual-input">
-                  <option value="bike">🚴 Bike</option>
-                  <option value="run">🏃 Run</option>
-                  <option value="walk">🚶 Walk</option>
-                  <option value="hike">🥾 Hike</option>
-                </select>
-                <input type="date" id="log-date" class="manual-input">
-              </div>
-              <div class="form-row">
-                <input type="text" id="log-desc" placeholder="Description (e.g. Morning 5K)" class="manual-input"
-                  style="flex: 2;">
-                <input type="number" id="log-output" placeholder="Output (kJ)" class="manual-input" style="flex: 1;">
-              </div>
-              <button id="log-workout-btn" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem;">Log
-                Workout</button>
+          <!-- Distance Challenges Section -->
+          <div id="distance-challenges-section" class="challenge-type-section hidden">
+            <h3 style="margin-bottom: 1rem;">Distance Challenges</h3>
+            <p class="description" style="margin-bottom: 1rem;">Set a distance goal to reach. Track your cumulative
+              distance across all workouts.</p>
+            <div id="distance-challenges-grid" class="challenges-grid">
+              <!-- Distance Challenge Cards Injected by JS -->
             </div>
 
-            <div class="workouts-container">
-              <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Recent Logs</h3>
-              <div id="workout-list">
-                <!-- Workouts injected here -->
+            <!-- Create Custom Distance Challenge -->
+            <div class="create-challenge-section"
+              style="margin-top: 1rem; background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
+              <h4 style="margin-bottom: 0.5rem;">Create Custom Distance Goal</h4>
+              <div class="form-row">
+                <input type="text" id="new-distance-challenge-name" placeholder="Goal Name (e.g. Cross Country)"
+                  class="manual-input" style="flex: 2;">
+                <input type="number" id="new-distance-challenge-distance" placeholder="Distance (km)"
+                  class="manual-input" style="flex: 1;">
+                <button id="create-distance-challenge-btn" class="btn btn-secondary" style="flex: 0 0 auto;">+</button>
               </div>
-            </div>
-
-            <div class="challenge-controls">
-              <div class="control-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <select id="target-challenge-select" class="manual-input" style="flex: 1;">
-                  <!-- Options injected by JS -->
-                </select>
-              </div>
-              <p id="challenge-summary" style="margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted);">0 kJ
-                selected</p>
-              <button id="add-to-challenge-btn" class="btn btn-primary" disabled>Add to Challenge</button>
             </div>
           </div>
         </div>
