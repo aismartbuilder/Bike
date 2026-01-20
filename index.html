@@ -160,6 +160,9 @@
       </div>
     </header>
 
+    <!-- Notification Container -->
+    <div id="notification-container"></div>
+
     <main>
       <!-- MY WORKOUTS TAB -->
       <div id="tab-myworkouts" class="tab-content active">
@@ -200,6 +203,18 @@
               <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Recent Logs</h3>
               <div id="workout-list">
                 <!-- Workouts injected here -->
+              </div>
+            </div>
+
+            <div class="workout-history-section" style="margin-top: 2rem;">
+              <div id="history-header"
+                style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                <h3 style="margin: 0; font-size: 1.1rem;">Workout History</h3>
+                <span id="history-toggle-icon">▼</span>
+              </div>
+              <div id="workout-history-list" class="hidden" style="margin-top: 1rem;">
+                <!-- Older workouts will be rendered here -->
+                <p style="color: var(--text-muted); font-style: italic; text-align: center;">No history logs yet.</p>
               </div>
             </div>
 
@@ -253,16 +268,19 @@
 
       <!-- MY CHALLENGES TAB -->
       <div id="tab-mychallenges" class="tab-content hidden">
-        <div class="card" style="margin-top: 0;">
-          <h2>My Active Challenge</h2>
-          <p class="description">Your current climbing goal and progress.</p>
+        <!-- Card wrapper removed for floating effect -->
+        <div style="text-align: center; margin-bottom: 1rem;">
+          <h2 style="color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">My Active Challenges</h2>
+          <p class="description" style="color: rgba(255,255,255,0.8); text-shadow: 0 1px 2px rgba(0,0,0,0.5);">Your
+            current climbing goal and progress.</p>
+        </div>
 
-          <div id="active-challenge-display" style="margin-top: 2rem;">
-            <div style="text-align: center; padding: 3rem 0; color: var(--text-muted);">
-              <span style="font-size: 3rem;">🏔️</span>
-              <p style="margin-top: 1rem;">No active challenge selected.</p>
-              <p style="font-size: 0.9rem;">Visit the Challenges tab to start climbing!</p>
-            </div>
+        <div id="active-challenge-display" style="margin-top: 1rem;">
+          <div style="text-align: center; padding: 3rem 0; color: rgba(255,255,255,0.8);">
+            <span style="font-size: 3rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">🏔️</span>
+            <p style="margin-top: 1rem; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">No active challenge selected.</p>
+            <p style="font-size: 0.9rem; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">Visit the Challenges tab to start
+              climbing!</p>
           </div>
         </div>
       </div>
@@ -295,8 +313,12 @@
               <div class="form-row">
                 <input type="text" id="new-climbing-challenge-name" placeholder="Goal Name (e.g. Local Hill)"
                   class="manual-input" style="flex: 2;">
-                <input type="number" id="new-climbing-challenge-height" placeholder="Height (m)" class="manual-input"
+                <input type="number" id="new-climbing-challenge-height" placeholder="Height" class="manual-input"
                   style="flex: 1;">
+                <div class="unit-toggle" style="flex: 0 0 auto;">
+                  <span class="unit-option active" data-unit-type="new-climb-unit" data-unit="m">m</span>
+                  <span class="unit-option" data-unit-type="new-climb-unit" data-unit="ft">ft</span>
+                </div>
                 <button id="create-climbing-challenge-btn" class="btn btn-secondary" style="flex: 0 0 auto;">+</button>
               </div>
             </div>
@@ -318,8 +340,12 @@
               <div class="form-row">
                 <input type="text" id="new-distance-challenge-name" placeholder="Goal Name (e.g. Cross Country)"
                   class="manual-input" style="flex: 2;">
-                <input type="number" id="new-distance-challenge-distance" placeholder="Distance (km)"
-                  class="manual-input" style="flex: 1;">
+                <input type="number" id="new-distance-challenge-distance" placeholder="Distance" class="manual-input"
+                  style="flex: 1;">
+                <div class="unit-toggle" style="flex: 0 0 auto;">
+                  <span class="unit-option active" data-unit-type="new-dist-unit" data-unit="km">km</span>
+                  <span class="unit-option" data-unit-type="new-dist-unit" data-unit="mi">mi</span>
+                </div>
                 <button id="create-distance-challenge-btn" class="btn btn-secondary" style="flex: 0 0 auto;">+</button>
               </div>
             </div>

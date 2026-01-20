@@ -264,7 +264,7 @@ body {
 
 /* Main App Wrapper (Modifying existing selector) */
 #app-view {
-  max-width: 600px;
+  max-width: 1000px;
   /* Slightly wider for better layout */
 }
 
@@ -436,6 +436,7 @@ footer {
   display: flex;
   gap: 1rem;
   margin-top: 2rem;
+  margin-bottom: 2rem;
   background: rgba(30, 41, 59, 0.5);
   padding: 0.5rem;
   border-radius: 100px;
@@ -613,7 +614,7 @@ footer {
 }
 
 .badge.locked {
-  opacity: 0.7;
+  display: none;
 }
 
 .badge.unlocked {
@@ -795,10 +796,167 @@ footer {
   color: var(--primary-color);
 }
 
-/* Scrollbar for list */
-#workout-list::-webkit-scrollbar {
-  width: 6px;
+
+/* Notification Toast */
+
+/* Delete Confirmation Modal */
+.confirmation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  animation: fadeIn 0.2s ease-out;
 }
+
+.confirmation-modal {
+  background: var(--card-bg);
+  padding: 2rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  transform: translateY(0);
+  animation: slideIn 0.3s ease-out;
+}
+
+.confirmation-modal p {
+  font-size: 1.1rem;
+  margin-top: 0;
+  margin-bottom: 2rem;
+  color: var(--text-color);
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.btn-confirm {
+  background: linear-gradient(135deg, #ff4757, #ff6b81);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 71, 87, 0.3);
+}
+
+.btn-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#notification-container {
+  position: fixed;
+  top: 80px;
+  /* Below header */
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notification-toast {
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid var(--primary-color);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 300px;
+  backdrop-filter: blur(10px);
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+.notification-toast.fade-out {
+  animation: fadeOut 0.3s ease-in forwards;
+}
+
+.notification-icon {
+  font-size: 1.5rem;
+}
+
+.notification-content {
+  flex: 1;
+}
+
+.notification-title {
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+  color: var(--primary-color);
+}
+
+.notification-message {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
 
 #workout-list::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.1);
@@ -952,6 +1110,104 @@ footer {
   overflow: hidden;
   color: var(--text-muted);
   margin-bottom: 1rem;
+}
+
+/* --- My Challenges Circular Design --- */
+.my-challenges-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1rem;
+}
+
+.challenge-ring-container {
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  /* Gradient is set inline by JS: conic-gradient(...) */
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s;
+}
+
+.challenge-ring-container:hover {
+  transform: scale(1.02);
+}
+
+.challenge-circle-inner {
+  width: 240px;
+  /* 10px ring thickness */
+  height: 240px;
+  background: var(--card-bg);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+.circle-icon {
+  font-size: 3.5rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.circle-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 0.2rem;
+  line-height: 1.2;
+}
+
+.circle-stats {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+.circle-percent {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  margin-top: 0.2rem;
+}
+
+.circle-remove-btn {
+  position: absolute;
+  top: 10px;
+  right: 50px;
+  /* Adjusted to be inside/near circle */
+  background: rgba(255, 0, 0, 0.2);
+  color: #ff5555;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.challenge-ring-container:hover .circle-remove-btn {
+  opacity: 1;
+}
+
+.circle-remove-btn:hover {
+  background: #ff5555;
+  color: white;
 }
 
 /* Header Controls Positioning */
@@ -1118,4 +1374,190 @@ footer {
   margin-left: auto;
   /* Push to right */
   align-items: center;
+}
+
+/* Workout History */
+.workout-history-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 1rem;
+}
+
+#history-header {
+  transition: background 0.2s;
+}
+
+#history-header:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+#history-toggle-icon {
+  transition: transform 0.3s ease;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* =========================================
+   RESPONSIVE DESIGN (Media Queries)
+   ========================================= */
+
+/* Tablet & Mobile (Max Width 768px) */
+@media (max-width: 768px) {
+
+  /* Layout Containers */
+  .view-section {
+    padding: 1.5rem 1rem;
+    width: 100%;
+    /* Ensure full width */
+  }
+
+  #app-view {
+    max-width: 100%;
+    /* Allow full width on mobile */
+    margin: 0;
+  }
+
+  .card,
+  .auth-card {
+    padding: 1.5rem;
+    /* Reduce padding */
+    border-radius: 1rem;
+  }
+
+  /* Header & Navigation */
+  .header-top {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 1rem;
+    position: relative;
+    /* For absolute positioning context if needed */
+  }
+
+  .brand h1 {
+    font-size: 1.5rem;
+  }
+
+  .brand p {
+    font-size: 0.9rem;
+    display: none;
+    /* Hide tagline on mobile to save space */
+  }
+
+  .user-controls {
+    position: static;
+    /* Stack naturally in column layout */
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+  }
+
+  .tab-nav {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1.5rem 0;
+    border-radius: 1rem;
+    /* Less rounded on multi-line */
+  }
+
+  .tab-btn {
+    flex: 1 1 40%;
+    /* 2 per row approx */
+    font-size: 0.9rem;
+    padding: 0.5rem;
+  }
+
+  /* Components */
+  .features,
+  .badges-grid,
+  .challenges-grid,
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    /* Force 2 columns on tablet */
+    gap: 1rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+    /* Stack form inputs */
+    align-items: stretch;
+  }
+
+  .form-row input,
+  .form-row select,
+  .form-row button {
+    width: 100%;
+    flex: auto !important;
+    /* Override flex values */
+  }
+
+  /* Landing Page */
+  .hero h1 {
+    font-size: 2.5rem;
+  }
+
+  .hero p {
+    font-size: 1.1rem;
+  }
+
+  /* Modals / Dropdowns */
+  .settings-dropdown {
+    width: 90%;
+    /* quasi-full width */
+    right: 5%;
+    left: 5%;
+    top: 100%;
+  }
+}
+
+/* Mobile (Max Width 480px) */
+@media (max-width: 480px) {
+
+  /* Grids to 1 column */
+  .features,
+  .badges-grid,
+  .challenges-grid,
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .header-top {
+    align-items: center !important;
+    text-align: center;
+  }
+
+  .brand {
+    text-align: center;
+    width: 100%;
+  }
+
+  .user-controls {
+    justify-content: center;
+  }
+
+  .tab-btn {
+    flex: 1 1 100%;
+    /* 1 per row */
+  }
+
+  .hero h1 {
+    font-size: 2rem;
+  }
+
+  .btn {
+    width: 100%;
+    /* Full width buttons */
+  }
+
+  .cta-group {
+    flex-direction: column;
+    width: 100%;
+  }
+
+}
+
+/* Fix for dropdown visibility (GLOBAL) */
+select.manual-input option,
+.manual-input option {
+  background-color: #1e293b !important;
+  color: white !important;
+  padding: 10px;
 }

@@ -13,6 +13,81 @@ document.addEventListener('DOMContentLoaded', () => {
         app: document.getElementById('app-view')
     };
 
+    // --- Notification Helper ---
+    function showNotification(title, message, icon = '✅') {
+        const container = document.getElementById('notification-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = 'notification-toast';
+        toast.innerHTML = `
+            <div class="notification-icon">${icon}</div>
+            <div class="notification-content">
+                <div class="notification-title">${title}</div>
+                <div class="notification-message">${message}</div>
+            </div>
+        `;
+
+        container.appendChild(toast);
+
+        // Remove after delay
+        setTimeout(() => {
+            toast.classList.add('fade-out');
+            toast.addEventListener('animationend', () => {
+                toast.remove();
+            });
+        }, 3000);
+    }
+
+    // --- Confirmation Helper ---
+    function showConfirmation(message, onConfirm) {
+        // Create Overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'confirmation-overlay';
+
+        // Create Modal
+        const modal = document.createElement('div');
+        modal.className = 'confirmation-modal';
+
+        modal.innerHTML = `
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🗑️</div>
+            <p>${message}</p>
+            <div class="confirmation-actions">
+                <button class="btn-cancel">Cancel</button>
+                <button class="btn-confirm">Delete</button>
+            </div>
+        `;
+
+        // Append to overlay
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Handlers
+        const cancelBtn = modal.querySelector('.btn-cancel');
+        const confirmBtn = modal.querySelector('.btn-confirm');
+
+        function close() {
+            overlay.classList.add('fade-out'); // Add fade-out animation if defined, or just remove
+            overlay.remove();
+        }
+
+        cancelBtn.addEventListener('click', close);
+
+        // Close on background click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close();
+        });
+
+        confirmBtn.addEventListener('click', () => {
+            onConfirm();
+            close();
+        });
+
+        // Focus confirm for accessibility/speed? Or cancel for safety? 
+        // Let's focus cancel for safety.
+        cancelBtn.focus();
+    }
+
     // Legacy nav removed
     // const nav = document.getElementById('main-nav');
     const logoutBtn = document.getElementById('logout-btn');
@@ -229,6 +304,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             tabContents[target].classList.remove('hidden');
             tabContents[target].classList.add('active');
+
+            // Bug Refresh: If switching to myworkouts, refresh the dropdown
+            if (target === 'myworkouts') {
+                updateTargetChallengeSelect();
+            }
         });
     });
 
@@ -284,6 +364,27 @@ document.addEventListener('DOMContentLoaded', () => {
         // Let's just handle the active class switch.
     }));
     distanceToggles.forEach(t => t.addEventListener('click', () => setUnit('distance', t.dataset.unit)));
+
+    // New Challenge Unit Toggles
+    const newClimbUnitToggles = document.querySelectorAll('[data-unit-type="new-climb-unit"]');
+    newClimbUnitToggles.forEach(t => t.addEventListener('click', () => {
+        newClimbUnitToggles.forEach(btn => btn.classList.remove('active'));
+        t.classList.add('active');
+        const heightInput = document.getElementById('new-climbing-challenge-height');
+        if (heightInput) {
+            heightInput.placeholder = t.dataset.unit === 'ft' ? 'Height (ft)' : 'Height (m)';
+        }
+    }));
+
+    const newDistUnitToggles = document.querySelectorAll('[data-unit-type="new-dist-unit"]');
+    newDistUnitToggles.forEach(t => t.addEventListener('click', () => {
+        newDistUnitToggles.forEach(btn => btn.classList.remove('active'));
+        t.classList.add('active');
+        const distInput = document.getElementById('new-distance-challenge-distance');
+        if (distInput) {
+            distInput.placeholder = t.dataset.unit === 'mi' ? 'Distance (mi)' : 'Distance (km)';
+        }
+    }));
 
     // Workout Metric Toggle (Output vs Miles)
     const workoutMetricToggles = document.querySelectorAll('[data-unit-type="workout-metric"]');
@@ -582,7 +683,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'marathon', title: 'Marathon', distance: 42.195, type: 'distance', icon: '🏃' },
         { id: 'ultra', title: 'Ultra Marathon', distance: 100, type: 'distance', icon: '🏃‍♂️' },
         { id: 'century', title: 'Century Ride', distance: 160.9, type: 'distance', icon: '🚴' },
-        { id: 'cross-country', title: 'Cross Country', distance: 500, type: 'distance', icon: '🌍' }
+        { id: 'cross-country', title: 'Cross Country', distance: 500, type: 'distance', icon: '🌍' },
+        { id: 'tour-de-france', title: 'Tour de France', distance: 3500, type: 'distance', icon: '🇫🇷' }
     ];
 
     function getAllClimbingChallenges() {
@@ -597,6 +699,153 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getAllChallenges() {
         return [...getAllClimbingChallenges(), ...getAllDistanceChallenges()];
+    }
+
+    // --- My Challenges Logic ---
+    function getMyChallenges() {
+        return JSON.parse(localStorage.getItem('my_challenges') || '[]');
+    }
+
+    function saveMyChallenges(challenges) {
+        localStorage.setItem('my_challenges', JSON.stringify(challenges));
+    }
+
+    // Robust UUID generator
+    function generateUUID() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return 'uuid-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function addToMyChallenges(challengeId) {
+        console.log('addToMyChallenges called with ID:', challengeId);
+        const all = getAllChallenges();
+        const template = all.find(c => c.id === challengeId);
+
+        if (!template) {
+            console.error('Challenge not found:', challengeId);
+            return;
+        }
+
+        const myChallenges = getMyChallenges();
+
+        // Create a unique instance
+        const newInstance = {
+            ...template,
+            instanceId: `my_${template.id}_${generateUUID()}`,
+            originalId: template.id,
+            dateStarted: new Date().toISOString().split('T')[0],
+            progress: 0,
+            status: 'active' // active, completed
+        };
+
+        myChallenges.push(newInstance);
+        saveMyChallenges(myChallenges);
+        console.log('Saved myChallenges. New Count:', myChallenges.length);
+
+        // alert(`✅ Added "${template.title}" to My Challenges!`);
+        showNotification('Challenge Added', `Added "${template.title}"! (Total: ${myChallenges.length})`, '🎯');
+        renderMyChallenges(); // Refresh the tab
+
+        // Debug: Check if dropdown logic runs
+        updateTargetChallengeSelect();
+
+        // Auto-select the new challenge so it's ready to use
+        const select = document.getElementById('target-challenge-select');
+        if (select) {
+            select.value = newInstance.instanceId;
+            // Optional: Scroll to it or highlight it?
+            // For now, selecting it is enough.
+            console.log('Auto-selected new challenge:', newInstance.instanceId);
+        }
+    }
+
+    function removeMyChallenge(instanceId) {
+        showConfirmation('Are you sure you want to remove this challenge? Progress will be lost.', () => {
+            let myChallenges = getMyChallenges();
+            myChallenges = myChallenges.filter(c => c.instanceId !== instanceId);
+            saveMyChallenges(myChallenges);
+            renderMyChallenges();
+            showNotification('Removed', 'Challenge removed from your list.', '🗑️');
+        });
+    }
+
+    function renderMyChallenges() {
+        const container = document.getElementById('active-challenge-display');
+        if (!container) return;
+
+        const myChallenges = getMyChallenges();
+
+        if (myChallenges.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 3rem 0; color: rgba(255,255,255,0.8);">
+                    <span style="font-size: 3rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">🏔️</span>
+                    <p style="margin-top: 1rem; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">No active challenges.</p>
+                    <p style="font-size: 0.9rem; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">Go to "Challenges" and add one!</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = '<div class="my-challenges-wrapper" id="my-challenges-grid"></div>';
+        const grid = document.getElementById('my-challenges-grid');
+
+        myChallenges.forEach(challenge => {
+            const isClimbing = challenge.type === 'climbing';
+            const total = isClimbing ? challenge.height : challenge.distance;
+            const unit = isClimbing ? 'm' : 'km';
+            const current = challenge.progress || 0;
+            const percentage = Math.min((current / total) * 100, 100).toFixed(1);
+
+            const ringContainer = document.createElement('div');
+            ringContainer.className = 'challenge-ring-container';
+
+            // Dynamic Gradient for Progress Ring
+            // Using primary color for progress, and a faded white for remaining
+            ringContainer.style.background = `conic-gradient(var(--primary-color) ${percentage}%, rgba(255,255,255,0.1) 0)`;
+
+            ringContainer.innerHTML = `
+                <div class="challenge-circle-inner">
+                    <button class="circle-remove-btn remove-challenge-btn" 
+                            data-instance-id="${challenge.instanceId}" 
+                            title="Remove Challenge">
+                        ✕
+                    </button>
+
+                    ${challenge.image
+                    ? `<img src="${challenge.image}" alt="${challenge.title}" class="challenge-img" style="border-radius:50%; width:80px; height:80px; margin-bottom:0.5rem;">`
+                    : `<span class="circle-icon">${challenge.icon || '🎯'}</span>`
+                }
+                    
+                    <div class="circle-title">${challenge.title}</div>
+                    
+                    <div class="circle-percent">${percentage}%</div>
+                    
+                    <div class="circle-stats">
+                        ${Number(current).toFixed(1)} / ${total}${unit}
+                    </div>
+                </div>
+            `;
+            grid.appendChild(ringContainer);
+        });
+
+        // Also update the logging dropdown to include these
+        updateTargetChallengeSelect();
+    }
+
+    // --- Event Delegation for Dynamic Remove Buttons ---
+    const activeChallengeDisplay = document.getElementById('active-challenge-display');
+    if (activeChallengeDisplay) {
+        activeChallengeDisplay.addEventListener('click', (e) => {
+            const btn = e.target.closest('.remove-challenge-btn');
+            if (btn) {
+                e.preventDefault(); // Stop default action
+                const id = btn.dataset.instanceId;
+                console.log('Delegated remove click for:', id);
+                removeMyChallenge(id);
+            }
+        });
     }
 
     // Challenge Type Tab Switching
@@ -621,11 +870,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createCustomClimbingChallenge() {
         const name = newClimbingChallengeName.value.trim();
-        const height = parseInt(newClimbingChallengeHeight.value);
+        let height = parseInt(newClimbingChallengeHeight.value);
 
         if (!name || !height || height <= 0) {
             alert('Please enter a valid name and height.');
             return;
+        }
+
+        // Check unit and convert if necessary (Store as meters)
+        const activeUnit = document.querySelector('[data-unit-type="new-climb-unit"].active');
+        const unit = activeUnit ? activeUnit.dataset.unit : 'm';
+
+        if (unit === 'ft') {
+            height = Math.round(height * 0.3048); // Convert ft to m
         }
 
         const newChallenge = {
@@ -649,11 +906,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createCustomDistanceChallenge() {
         const name = newDistanceChallengeName.value.trim();
-        const distance = parseFloat(newDistanceChallengeDistance.value);
+        let distance = parseFloat(newDistanceChallengeDistance.value);
 
         if (!name || !distance || distance <= 0) {
             alert('Please enter a valid name and distance.');
             return;
+        }
+
+        // Check unit and convert if necessary (Store as km)
+        const activeUnit = document.querySelector('[data-unit-type="new-dist-unit"].active');
+        const unit = activeUnit ? activeUnit.dataset.unit : 'km';
+
+        if (unit === 'mi') {
+            distance = parseFloat((distance * 1.60934).toFixed(2)); // Convert mi to km
         }
 
         const newChallenge = {
@@ -691,6 +956,68 @@ document.addEventListener('DOMContentLoaded', () => {
         return JSON.parse(localStorage.getItem('challenge_progress') || '{}');
     }
 
+    function updateTargetChallengeSelect() {
+        console.log('updateTargetChallengeSelect called');
+        const targetChallengeSelect = document.getElementById('target-challenge-select');
+        if (!targetChallengeSelect) {
+            console.error('Target challenge select element not found!');
+            return;
+        }
+
+        targetChallengeSelect.innerHTML = '';
+
+        // Add "My Challenges" first
+        const myChallenges = getMyChallenges();
+
+        // DEBUG: Log state
+        console.log(`DEBUG: Updating Dropdown. Count: ${myChallenges.length}`);
+
+        if (myChallenges.length > 0) {
+            // Simplified: No optgroup to avoid potential rendering glitches
+            // const group = document.createElement('optgroup');
+            // group.label = "My Active Challenges";
+
+            myChallenges.forEach(c => {
+                if (c && c.title && c.instanceId) {
+                    const opt = document.createElement('option');
+                    opt.value = c.instanceId; // Use instanceId for logging!
+                    opt.textContent = `${c.title} (Started ${c.dateStarted})`;
+                    // group.appendChild(opt);
+                    targetChallengeSelect.appendChild(opt);
+                } else {
+                    console.warn('Skipping malformed my_challenge entry:', c);
+                }
+            });
+            // if (group.children.length > 0) {
+            //     targetChallengeSelect.appendChild(group);
+            // }
+        }
+
+        // Global templates removed from dropdown as per user request.
+        // Users must add challenges to "My Challenges" first.
+        if (targetChallengeSelect.options.length === 0) {
+            const placeholder = document.createElement('option');
+            placeholder.text = "Select a challenge (Add one from 'Challenges' tab)";
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            targetChallengeSelect.appendChild(placeholder);
+        }
+    }
+
+    function deleteCustomChallenge(id, type) {
+        showConfirmation('Are you sure you want to delete this custom challenge template?', () => {
+            const key = type === 'climbing' ? 'custom_climbing_challenges' : 'custom_distance_challenges';
+            let custom = JSON.parse(localStorage.getItem(key) || '[]');
+
+            custom = custom.filter(c => c.id !== id);
+            localStorage.setItem(key, JSON.stringify(custom));
+
+            renderChallenges();
+            updateTargetChallengeSelect();
+            showNotification('Deleted', 'Custom challenge template deleted.', '🗑️');
+        });
+    }
+
     function renderChallenges() {
         // Render Climbing Challenges
         if (climbingChallengesGrid) {
@@ -703,10 +1030,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const progress = progressMap[challenge.id] || 0;
                 const percentage = Math.min((progress / challenge.height) * 100, 100).toFixed(1);
                 const isActive = challenge.id === activeId;
+                const isCustom = challenge.id.startsWith('custom_');
 
                 const card = document.createElement('div');
                 card.className = `challenge-card ${isActive ? 'active-challenge' : ''}`;
+
+                let deleteBtnHtml = '';
+                if (isCustom) {
+                    deleteBtnHtml = `
+                        <button class="btn-icon delete-challenge-btn" data-id="${challenge.id}" data-type="climbing" title="Delete Template" 
+                                style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.5); color: #ff5555;">
+                            🗑️
+                        </button>
+                    `;
+                }
+
                 card.innerHTML = `
+                    ${deleteBtnHtml}
                     <div class="challenge-header">
                         ${challenge.image
                         ? `<img src="${challenge.image}" alt="${challenge.title}" class="challenge-img">`
@@ -727,10 +1067,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span>${percentage}%</span>
                     </div>
 
-                    <button class="btn-challenge ${isActive ? 'active-btn' : 'join'}" 
-                        data-id="${challenge.id}">
-                        ${isActive ? 'Active Challenge' : 'Join Challenge'}
-                    </button>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button class="btn-challenge simple-add-btn" 
+                            data-id="${challenge.id}" style="flex: 1;">
+                            + My Challenges
+                        </button>
+                    </div>
                 `;
                 climbingChallengesGrid.appendChild(card);
             });
@@ -747,10 +1089,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const progress = progressMap[challenge.id] || 0;
                 const percentage = Math.min((progress / challenge.distance) * 100, 100).toFixed(1);
                 const isActive = challenge.id === activeId;
+                const isCustom = challenge.id.startsWith('custom_');
 
                 const card = document.createElement('div');
                 card.className = `challenge-card ${isActive ? 'active-challenge' : ''}`;
+
+                let deleteBtnHtml = '';
+                if (isCustom) {
+                    deleteBtnHtml = `
+                        <button class="btn-icon delete-challenge-btn" data-id="${challenge.id}" data-type="distance" title="Delete Template"
+                                style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.5); color: #ff5555;">
+                            🗑️
+                        </button>
+                    `;
+                }
+
                 card.innerHTML = `
+                    ${deleteBtnHtml}
                     <div class="challenge-header">
                         ${challenge.image
                         ? `<img src="${challenge.image}" alt="${challenge.title}" class="challenge-img">`
@@ -771,63 +1126,84 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span>${percentage}%</span>
                     </div>
 
-                    <button class="btn-challenge ${isActive ? 'active-btn' : 'join'}" 
-                        data-id="${challenge.id}">
-                        ${isActive ? 'Active Challenge' : 'Join Challenge'}
-                    </button>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                         <button class="btn-challenge simple-add-btn" 
+                            data-id="${challenge.id}" style="flex: 1;">
+                            + My Challenges
+                        </button>
+                    </div>
                 `;
                 distanceChallengesGrid.appendChild(card);
             });
         }
 
-        // Add Listeners for both types
-        document.querySelectorAll('.btn-challenge.join').forEach(btn => {
+        // Add Listeners for Add Buttons
+        document.querySelectorAll('.simple-add-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const id = e.target.dataset.id;
-                localStorage.setItem('active_challenge', id);
-                renderChallenges();
-                const all = getAllChallenges();
-                const challenge = all.find(c => c.id === id);
-                if (challenge.type === 'climbing') {
-                    alert(`🏔️ You are now climbing ${challenge.title}!`);
-                } else {
-                    alert(`🏃 You are now pursuing ${challenge.title}!`);
-                }
+                console.log('Add button clicked. ID:', id);
+                addToMyChallenges(id);
             });
         });
 
-        // Update Target Challenge Dropdown
-        if (targetChallengeSelect) {
-            targetChallengeSelect.innerHTML = '';
-            const all = getAllChallenges();
-            all.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c.id;
-                opt.textContent = c.title;
-                if (c.id === activeId) opt.selected = true;
-                targetChallengeSelect.appendChild(opt);
+        // Add Listeners for Delete Custom Buttons
+        document.querySelectorAll('.delete-challenge-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // prevent other clicks
+                const id = e.target.dataset.id;
+                const type = e.target.dataset.type;
+                deleteCustomChallenge(id, type);
             });
-        }
+        });
+
+        updateTargetChallengeSelect();
     }
 
     let editingWorkoutId = null;
 
     function renderWorkouts() {
         if (!workoutList) return;
+        const historyList = document.getElementById('workout-history-list');
+
         workoutList.innerHTML = '';
+        if (historyList) historyList.innerHTML = '';
 
         if (workoutHistory.length === 0) {
             workoutList.innerHTML = '<p style="color: grey; font-style: italic;">No workouts logged yet.</p>';
+            if (historyList) historyList.innerHTML = '<p style="color: var(--text-muted); font-style: italic; text-align: center;">No history logs yet.</p>';
             return;
         }
 
-        workoutHistory.forEach(workout => {
+        // Calculate Date Cutoff (5 days ago)
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - 5);
+        cutoffDate.setHours(0, 0, 0, 0); // Normalize to start of day
+
+        // Split workouts
+        const recentLogs = [];
+        const historyLogs = [];
+
+        workoutHistory.forEach(w => {
+            const wDate = new Date(w.date);
+            wDate.setHours(12, 0, 0, 0); // Avoid timezone edge cases by checking mid-day or just rely on string comparison if ISO
+            // robust date comparison:
+            const wDateStr = w.date; // YYYY-MM-DD
+            const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+            if (wDateStr >= cutoffStr) {
+                recentLogs.push(w);
+            } else {
+                historyLogs.push(w);
+            }
+        });
+
+        // Helper to render to a container
+        const renderItemToContainer = (workout, container) => {
             const item = document.createElement('div');
             item.className = 'workout-item';
 
-            // Check if this workout is being edited
             if (editingWorkoutId === workout.id) {
-                // Render Edit Form
                 item.innerHTML = `
                     <div class="workout-edit-form">
                         <input type="text" id="edit-desc-${workout.id}" class="manual-input" value="${workout.title}" style="flex: 2;">
@@ -847,7 +1223,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             } else {
-                // Render Normal View (with Edit Button)
                 const icon = getIconForType(workout.type) || '💪';
                 const unitLabel = workout.metricType === 'miles' ? 'mi' : 'kJ';
 
@@ -858,47 +1233,65 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="workout-meta">${workout.date} • ${workout.output} ${unitLabel}</span>
                     </div>
                     <div class="workout-actions">
-                         <button class="btn-icon edit" data-id="${workout.id}" title="Edit">✏️</button>
+                        <button class="btn-icon edit" data-id="${workout.id}" title="Edit">✏️</button>
                     </div>
                 `;
             }
-            workoutList.appendChild(item);
-        });
+            container.appendChild(item);
+        };
 
-        // Add Listeners
+        // Render Recent
+        if (recentLogs.length === 0) {
+            workoutList.innerHTML = '<p style="color: grey; font-style: italic;">No recent logs (last 5 days).</p>';
+        } else {
+            recentLogs.forEach(w => renderItemToContainer(w, workoutList));
+        }
+
+        // Render History
+        if (historyList) {
+            if (historyLogs.length === 0) {
+                historyList.innerHTML = '<p style="color: var(--text-muted); font-style: italic; text-align: center;">No older history.</p>';
+            } else {
+                historyLogs.forEach(w => renderItemToContainer(w, historyList));
+            }
+        }
+
+        // Attach Listeners (Global for both lists)
+        // We can just query all buttons in document or specific containers.
+        // renderWorkouts replaces content, so we re-attach to new elements.
+
+        const attach = (selector, fn) => {
+            document.querySelectorAll(selector).forEach(el => el.addEventListener('click', fn));
+        };
+
+        // Checkboxes
         document.querySelectorAll('.workout-checkbox').forEach(cb => {
             cb.addEventListener('change', updateChallengeSummary);
         });
 
-        // Edit Button Listeners
-        document.querySelectorAll('.btn-icon.edit').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                editingWorkoutId = parseInt(e.currentTarget.dataset.id);
-                renderWorkouts();
-            });
+        // Edit
+        attach('.btn-icon.edit', (e) => {
+            editingWorkoutId = parseInt(e.currentTarget.dataset.id);
+            renderWorkouts();
         });
 
-        // Save Button Listeners
-        document.querySelectorAll('.btn-icon.save').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                saveWorkout(parseInt(e.currentTarget.dataset.id));
-            });
+        // Save
+        attach('.btn-icon.save', (e) => {
+            saveWorkout(parseInt(e.currentTarget.dataset.id));
         });
 
-        // Cancel Button Listeners
-        document.querySelectorAll('.btn-icon.cancel').forEach(btn => {
-            btn.addEventListener('click', () => {
-                editingWorkoutId = null;
-                renderWorkouts();
-            });
+        // Cancel
+        attach('.btn-icon.cancel', () => {
+            editingWorkoutId = null;
+            renderWorkouts();
         });
 
-        // Delete Button Listeners
-        document.querySelectorAll('.btn-icon.delete').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                if (confirm('Are you sure you want to delete this workout?')) {
-                    deleteWorkout(parseInt(e.currentTarget.dataset.id));
-                }
+        // Delete
+        attach('.btn-icon.delete', (e) => {
+            const id = parseInt(e.currentTarget.dataset.id);
+            showConfirmation('Are you sure you want to delete this workout?', () => {
+                deleteWorkout(id);
+                showNotification('Deleted', 'Workout log deleted.', '🗑️');
             });
         });
     }
@@ -972,36 +1365,137 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 3. Update Progress for TARGET challenge
             const targetId = document.getElementById('target-challenge-select').value;
-            const progressMap = getChallengeProgress();
 
-            // Fix: Calculate new progress correctly
-            const currentProgress = progressMap[targetId] || 0;
-            const newProgress = currentProgress + addedMeters;
+            // Check if it's a "My Challenge" (instance) or a global one (legacy/fallback)
+            // Our new IDs start with "my_"
 
-            progressMap[targetId] = newProgress;
-            localStorage.setItem('challenge_progress', JSON.stringify(progressMap));
+            const myChallenges = getMyChallenges();
+            const instanceIndex = myChallenges.findIndex(c => c.instanceId === targetId);
 
-            // 4. Update UI
-            renderChallenges();
+            let challengeTitle = "Unknown Challenge";
 
-            // Celebrate
-            // confetti({
-            //     particleCount: 150,
-            //     spread: 100,
-            //     origin: { y: 0.6 }
-            // });
+            if (instanceIndex !== -1) {
+                // It is a My Challenge Instance
+                const instance = myChallenges[instanceIndex];
+                challengeTitle = instance.title;
 
-            const all = getAllChallenges();
-            // Fix: Use addedMeters variable
-            alert(`🔥 Awesome! ${totalKj} kJ converted to ${addedMeters}m!\nAdded to ${all.find(c => c.id === targetId).title}.`);
+                let addedValue = 0;
 
-            // Switch tab to Challenges to see progress?
-            document.querySelector('[data-tab="challenges"]').click();
+                if (instance.type === 'climbing') {
+                    // Logic for CLIMBING challenges (needs Meters)
+                    // We take the computed Elevation (meters) from the physics engine
+                    // which uses the kJ output and weight.
+                    addedValue = addedMeters;
+                } else {
+                    // Logic for DISTANCE challenges (needs KM)
+                    // We need to look at what was selected and sum up the DISTANCE.
+
+                    // Re-scan selected checkboxes to sum distance explicitly
+                    const checkedBoxes = document.querySelectorAll('.workout-checkbox:checked');
+                    let totalDistanceKm = 0;
+
+                    checkedBoxes.forEach(cb => {
+                        // We need to find the full workout object to get its metric type
+                        // We can trace back from the checkbox -> parent -> lookup by ID?
+                        // The checkbox doesn't currently store the ID.
+                        // Let's rely on looking up the workouts via the current list in memory 'workoutHistory'
+                        // matching by... wait, it's safer to improve the checkbox to store the ID.
+
+                        // BUT, to avoid breaking too much, let's look at the structure rendered:
+                        // <button class="btn-icon edit" data-id="${workout.id}" ...>
+                        // The checkbox is in the same .workout-item as the edit button.
+
+                        const item = cb.closest('.workout-item');
+                        const editBtn = item.querySelector('.btn-icon.edit');
+                        if (editBtn) {
+                            const wId = parseInt(editBtn.dataset.id);
+                            const w = workoutHistory.find(h => h.id === wId);
+
+                            if (w) {
+                                if (w.metricType === 'miles') {
+                                    // Miles -> Km
+                                    totalDistanceKm += (w.output * 1.60934);
+                                } else {
+                                    // kJ -> Cannot easily convert to distance without speed/time assumptions.
+                                    // For now, we will IGNORE kJ logs for Distance challenges to avoid cheating/errors,
+                                    // OR we could warn.
+                                    // Let's just not add them to the total.
+                                    console.warn(`Skipping workout ${w.id} for distance challenge: Metric is kJ`);
+                                }
+                            }
+                        }
+                    });
+
+                    addedValue = totalDistanceKm;
+                }
+
+                if (addedValue > 0) {
+                    instance.progress += addedValue;
+                    myChallenges[instanceIndex] = instance;
+                    saveMyChallenges(myChallenges);
+                    renderMyChallenges(); // Update the specific tab UI
+
+                    // 4. Update UI
+                    renderChallenges();
+                    alert(`🔥 Awesome! Added ${addedValue.toFixed(1)}${instance.type === 'climbing' ? 'm' : 'km'} to ${challengeTitle}.`);
+
+                    // Switch tab to Challenges to see progress?
+                    // Optional: maybe stay here so they can add more?
+                    // switching to see the bar is rewarding though.
+                    document.querySelector('[data-tab="mychallenges"]').click();
+                } else {
+                    alert("⚠️ No compatible distance workouts selected. Please log workouts in 'Miles' for distance challenges.");
+                }
+
+            } else {
+                // Legacy / Global Logic
+                const progressMap = getChallengeProgress();
+                const currentProgress = progressMap[targetId] || 0;
+                const newProgress = currentProgress + addedMeters;
+                progressMap[targetId] = newProgress;
+                localStorage.setItem('challenge_progress', JSON.stringify(progressMap));
+
+                const all = getAllChallenges();
+                const c = all.find(c => c.id === targetId);
+                if (c) challengeTitle = c.title;
+
+                // 4. Update UI (Legacy)
+                renderChallenges();
+                alert(`🔥 Awesome! Added progress to ${challengeTitle}.`);
+
+                // Switch tab to Challenges to see progress?
+                document.querySelector('[data-tab="challenges"]').click();
+            }
         });
+    }
+
+    function repairData() {
+        // Fix potential issues with my_challenges
+        try {
+            const myChallenges = JSON.parse(localStorage.getItem('my_challenges') || '[]');
+            let changed = false;
+            const validChallenges = myChallenges.filter(c => {
+                const isValid = c && c.instanceId && c.title;
+                if (!isValid) {
+                    console.warn('Removing malformed my_challenge:', c);
+                    changed = true;
+                }
+                return isValid;
+            });
+
+            if (changed) {
+                localStorage.setItem('my_challenges', JSON.stringify(validChallenges));
+                console.log('Repaired my_challenges data.');
+            }
+        } catch (e) {
+            console.error('Error repairing data:', e);
+        }
     }
 
     // --- Migration Logic ---
     function migrateLegacyData() {
+        repairData(); // Run repair first
+
         // 1. Migrate 'custom_challenges' to 'custom_climbing_challenges' (assuming they are climbing if they have height)
         const legacyCustom = JSON.parse(localStorage.getItem('custom_challenges') || '[]');
         if (legacyCustom.length > 0) {
@@ -1048,6 +1542,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- Workout History Toggle ---
+    const historyHeader = document.getElementById('history-header');
+    const historyList = document.getElementById('workout-history-list');
+    const historyIcon = document.getElementById('history-toggle-icon');
+
+    if (historyHeader && historyList && historyIcon) {
+        historyHeader.addEventListener('click', () => {
+            const isHidden = historyList.classList.contains('hidden');
+            if (isHidden) {
+                historyList.classList.remove('hidden');
+                historyIcon.style.transform = 'rotate(180deg)';
+            } else {
+                historyList.classList.add('hidden');
+                historyIcon.style.transform = 'rotate(0deg)';
+            }
+        });
+    }
+
     // --- Init ---
     migrateLegacyData(); // Run migration before rendering
     checkAuth();
@@ -1056,4 +1568,5 @@ document.addEventListener('DOMContentLoaded', () => {
     loadBadges();
     renderWorkouts();
     renderChallenges();
+    renderMyChallenges();
 });
