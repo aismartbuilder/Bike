@@ -41,10 +41,6 @@
         <p>Push harder to reach the next summit.</p>
       </div>
     </div>
-    <div class="landing-footer" style="text-align: center; margin-top: 3rem; padding: 2rem 0;">
-      <p style="font-size: 3rem; font-weight: 300; color: rgba(255,255,255,0.1); margin: 0; letter-spacing: 0.05em;">
-        Elevate your limits</p>
-    </div>
   </div>
 
   <!-- LOGIN PAGE -->
@@ -53,8 +49,8 @@
       <h2>Welcome Back! 👋</h2>
       <form id="login-form">
         <div class="input-group">
-          <label>Username</label>
-          <input type="text" id="login-username" required>
+          <label>Email</label>
+          <input type="email" id="login-username" placeholder="your@email.com" required>
         </div>
         <div class="input-group">
           <label>Password</label>
@@ -150,6 +146,25 @@
               </div>
             </div>
 
+            <div class="password-change-section"
+              style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+              <h4 style="margin-bottom: 1rem; font-size: 1rem;">Change Password</h4>
+              <div class="input-group">
+                <label for="current-password">Current Password</label>
+                <input type="password" id="current-password" placeholder="Enter current password">
+              </div>
+              <div class="input-group">
+                <label for="new-password">New Password</label>
+                <input type="password" id="new-password" placeholder="At least 6 characters">
+              </div>
+              <div class="input-group">
+                <label for="confirm-password">Confirm New Password</label>
+                <input type="password" id="confirm-password" placeholder="Re-enter new password">
+              </div>
+              <button id="change-password-btn" class="btn btn-secondary" style="margin-top: 0.5rem; width: 100%;">Change
+                Password</button>
+            </div>
+
             <button id="save-profile-btn" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">Save</button>
           </div>
         </div>
@@ -190,12 +205,14 @@
                 <input type="text" id="challenge-log-desc" placeholder="Description (e.g. Morning 5K)"
                   class="manual-input" style="flex: 1;">
               </div>
-              <div class="form-row" style="align-items: center;">
-                <input type="number" id="challenge-log-output" placeholder="Output (kJ)" class="manual-input"
-                  style="flex: 1;">
-                <div class="unit-toggle" style="flex: 0 0 auto;">
-                  <span class="unit-option active" data-unit-type="workout-metric" data-unit="output">kJ</span>
-                  <span class="unit-option" data-unit-type="workout-metric" data-unit="miles">mi</span>
+              <div class="form-row" style="gap: 0.5rem;">
+                <div class="input-group" style="flex: 1; margin: 0;">
+                  <label for="challenge-log-kj" style="font-size: 0.85rem; margin-bottom: 0.25rem;">kJ Output</label>
+                  <input type="number" id="challenge-log-kj" placeholder="Enter kJ" class="manual-input">
+                </div>
+                <div class="input-group" style="flex: 1; margin: 0;">
+                  <label for="challenge-log-miles" style="font-size: 0.85rem; margin-bottom: 0.25rem;">Miles</label>
+                  <input type="number" id="challenge-log-miles" placeholder="Enter miles" class="manual-input">
                 </div>
               </div>
               <button id="challenge-log-workout-btn" class="btn btn-secondary"
@@ -205,6 +222,21 @@
 
             <div class="workouts-container">
               <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Recent Logs</h3>
+
+              <!-- Bulk Actions Bar -->
+              <div id="workout-actions-bar"
+                style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <input type="checkbox" id="select-all-workouts" style="cursor: pointer;">
+                  <label for="select-all-workouts" style="cursor: pointer; font-size: 0.9rem; margin: 0;">Select
+                    All</label>
+                </div>
+                <button id="bulk-delete-btn" class="btn-icon" style="color: #ff5555; display: none;"
+                  title="Delete Selected">
+                  🗑️ Delete Selected
+                </button>
+              </div>
+
               <div id="workout-list">
                 <!-- Workouts injected here -->
               </div>
@@ -229,7 +261,7 @@
                 </select>
               </div>
               <p id="challenge-summary" style="margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted);">0 kJ
-                selected</p>
+                selected (for climbing)</p>
               <button id="add-to-challenge-btn" class="btn btn-primary" disabled>Add to Challenge</button>
             </div>
           </div>
@@ -364,7 +396,18 @@
             </div>
           </div>
         </div>
+
+        <div class="app-settings-section"
+          style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; text-align: center;">
+          <p style="font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-bottom: 0.5rem;">Missing challenges?</p>
+          <button id="reset-challenges-btn" type="button" class="btn btn-secondary"
+            onclick="localStorage.removeItem('custom_climbing_challenges'); localStorage.removeItem('custom_distance_challenges'); location.reload();"
+            style="font-size: 0.8rem; padding: 0.5rem 1rem; background: rgba(255,50,50,0.1); color: #ffaaaa; border-color: rgba(255,50,50,0.2);">
+            Restore Default Challenges
+          </button>
+        </div>
       </div>
+  </div>
   </div>
   </main>
 
@@ -372,7 +415,42 @@
     <p>Assumes Bike Weight: 61kg | Efficiency: 100% Mechanical</p>
   </footer>
   </div>
+
+
+  <script>
+    (function () {
+      const debugDiv = document.getElementById('debug-log-output');
+      if (!debugDiv) return;
+
+      const originalLog = console.log;
+      const originalError = console.error;
+
+      function appendLog(message, color) {
+        const line = document.createElement('div');
+        line.textContent = message;
+        line.style.color = color || 'lime';
+        line.style.borderBottom = '1px solid rgba(0,255,0,0.2)';
+        line.style.padding = '2px 0';
+        debugDiv.appendChild(line);
+        debugDiv.scrollTop = debugDiv.scrollHeight;
+      }
+
+      console.log = function (...args) {
+        originalLog.apply(console, args);
+        appendLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '), 'lime');
+      };
+
+      console.error = function (...args) {
+        originalError.apply(console, args);
+        appendLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '), 'red');
+      };
+
+      console.log('Debug Logger Active via Script');
+    })();
+  </script>
   <script type="module" src="main.js"></script>
+
+
 </body>
 
 </html>

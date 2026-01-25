@@ -2,6 +2,8 @@
 // import './style.css' // Loaded via HTML now
 import { calculateElevation } from './physicsEngine.js'
 import { auth } from './src/auth.js'
+// Import Firebase services
+import { auth as firebaseAuth, db as firebaseDb, firebaseApp } from './src/firebase-config.js'
 // import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/+esm'
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -20,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const toast = document.createElement('div');
         toast.className = 'notification-toast';
+
         toast.innerHTML = `
             <div class="notification-icon">${icon}</div>
             <div class="notification-content">
@@ -93,6 +96,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logout-btn');
 
     // --- State Management ---
+    // Helper for safe JSON parsing
+    function safeJSONParse(key, fallback) {
+        try {
+            const item = localStorage.getItem(key);
+            return item ? JSON.parse(item) : fallback;
+        } catch (e) {
+            console.error(`Error parsing ${key} from localStorage:`, e);
+            return fallback;
+        }
+    }
+
     function switchView(viewName) {
         // Hide all views
         Object.values(views).forEach(el => el.classList.add('hidden'));
@@ -117,7 +131,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Landing Page Buttons
     document.getElementById('landing-signup-btn').addEventListener('click', () => switchView('signup'));
-    document.getElementById('landing-login-btn').addEventListener('click', () => switchView('login'));
+    document.getElementById('landing-login-btn').addEventListener('click', () => {
+        switchView('login');
+        // Auto-fill saved email after a short delay to ensure view is rendered
+        setTimeout(() => {
+            const savedEmail = localStorage.getItem('saved_email');
+            const loginUsername = document.getElementById('login-username');
+            const loginRemember = document.getElementById('login-remember');
+            if (savedEmail && loginUsername && loginRemember) {
+                loginUsername.value = savedEmail;
+                loginRemember.checked = true;
+            }
+        }, 50);
+    });
 
     // Back Buttons
     document.getElementById('login-back-btn').addEventListener('click', () => switchView('landing'));
@@ -131,30 +157,46 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('to-login-link').addEventListener('click', (e) => {
         e.preventDefault();
         switchView('login');
+        autoFillSavedEmail(); // Auto-fill email if saved
     });
+
+    // Auto-fill saved email when login page is shown
+    function autoFillSavedEmail() {
+        const savedEmail = localStorage.getItem('saved_email');
+        if (savedEmail && loginUsernameInput && loginRememberCheckbox) {
+            loginUsernameInput.value = savedEmail;
+            loginRememberCheckbox.checked = true;
+        }
+    }
 
     // --- Header & User Logic ---
     const userAvatar = document.getElementById('user-avatar');
     const userInitials = document.getElementById('user-initials');
     const settingsDropdown = document.getElementById('settings-dropdown');
 
-    // Set Initials
-    const currentUser = auth.getUser();
-    if (currentUser) {
-        let text = 'U';
-        if (currentUser.name) {
-            text = currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-        } else if (currentUser.username) {
-            text = currentUser.username.substring(0, 2).toUpperCase();
-        }
-        if (userInitials) userInitials.textContent = text;
-    }
+    // User initials will be set in onAuthStateChanged callback (below)
+    // to ensure Firebase auth has loaded the user data first
 
     // Toggle Dropdown
     if (userAvatar && settingsDropdown) {
         userAvatar.addEventListener('click', (e) => {
             e.stopPropagation();
+            const wasHidden = settingsDropdown.classList.contains('hidden');
             settingsDropdown.classList.toggle('hidden');
+
+            // If opening the dropdown, refresh the values to show what's saved
+            if (wasHidden) {
+                const savedWeight = localStorage.getItem('bike_weight');
+                const savedGoal = localStorage.getItem('bike_goal');
+
+                if (savedWeight) {
+                    profileWeightInput.value = savedWeight;
+                }
+
+                if (savedGoal) {
+                    profileGoalInput.value = savedGoal;
+                }
+            }
         });
 
         // Close on click outside
@@ -173,62 +215,62 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            auth.logout();
+        logoutBtn.addEventListener('click', async () => {
+            await auth.logout();
             switchView('landing');
         });
     }
 
     // --- Event Listeners : Auth Forms ---
 
-    // Auto-fill password when username is entered (if Remember Me was used before)
+    // Auto-fill email when the field gains focus (if Remember Me was used before)
     const loginUsernameInput = document.getElementById('login-username');
     const loginPasswordInput = document.getElementById('login-password');
     const loginRememberCheckbox = document.getElementById('login-remember');
 
     if (loginUsernameInput && loginPasswordInput) {
         loginUsernameInput.addEventListener('input', () => {
-            const username = loginUsernameInput.value.trim();
-            if (username) {
-                const savedCreds = localStorage.getItem('saved_credentials');
-                if (savedCreds) {
-                    try {
-                        const { username: savedUsername, password: savedPassword } = JSON.parse(savedCreds);
-                        if (savedUsername === username && savedPassword) {
-                            loginPasswordInput.value = savedPassword;
-                            if (loginRememberCheckbox) {
-                                loginRememberCheckbox.checked = true;
-                            }
-                        }
-                    } catch (e) {
-                        console.error('Error reading saved credentials:', e);
-                    }
+            const email = loginUsernameInput.value.trim();
+            if (email) {
+                const savedEmail = localStorage.getItem('saved_email');
+                if (savedEmail === email && loginRememberCheckbox) {
+                    loginRememberCheckbox.checked = true;
                 }
             }
         });
     }
 
-    document.getElementById('login-form').addEventListener('submit', (e) => {
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const user = document.getElementById('login-username').value;
         const pass = document.getElementById('login-password').value;
         const remember = document.getElementById('login-remember').checked;
 
-        if (auth.login(user, pass, remember)) {
+        const success = await auth.login(user, pass, remember);
+        if (success) {
+            // Save or remove email based on "Remember Me" setting
+            if (remember) {
+                localStorage.setItem('saved_email', user);
+            } else {
+                localStorage.removeItem('saved_email');
+            }
+
             switchView('app');
             // Clear form
             e.target.reset();
         }
     });
 
-    document.getElementById('signup-form').addEventListener('submit', (e) => {
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = document.getElementById('signup-name').value;
         const email = document.getElementById('signup-email').value;
         const user = document.getElementById('signup-username').value;
         const pass = document.getElementById('signup-password').value;
 
-        if (auth.signup(name, email, user, pass)) {
+        const success = await auth.signup(name, email, user, pass);
+        if (success) {
             switchView('app');
             // Clear form
             e.target.reset();
@@ -420,15 +462,16 @@ document.addEventListener('DOMContentLoaded', () => {
         setUnit('distance', savedDistanceUnit);
 
         // Values
+        // Values
         const savedWeight = localStorage.getItem('bike_weight');
         if (savedWeight) {
-            weightInput.value = savedWeight;
-            profileWeightInput.value = savedWeight;
+            if (weightInput) weightInput.value = savedWeight;
+            if (profileWeightInput) profileWeightInput.value = savedWeight;
         }
 
         const savedGoal = localStorage.getItem('bike_goal');
         if (savedGoal) {
-            profileGoalInput.value = savedGoal;
+            if (profileGoalInput) profileGoalInput.value = savedGoal;
         }
     }
 
@@ -450,11 +493,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (msg) {
-            alert(msg);
+            showNotification('Settings Saved', msg);
+            // Close the settings dropdown after saving
+            if (settingsDropdown) {
+                settingsDropdown.classList.add('hidden');
+            }
         } else {
-            alert('Please enter valid details.');
+            showNotification('Error', 'Please enter valid details.', '⚠️');
         }
     });
+
+    // --- Change Password Logic ---
+    const changePasswordBtn = document.getElementById('change-password-btn');
+    const currentPasswordInput = document.getElementById('current-password');
+    const newPasswordInput = document.getElementById('new-password');
+    const confirmPasswordInput = document.getElementById('confirm-password');
+
+    if (changePasswordBtn) {
+        changePasswordBtn.addEventListener('click', async () => {
+            const currentPassword = currentPasswordInput.value.trim();
+            const newPassword = newPasswordInput.value.trim();
+            const confirmPassword = confirmPasswordInput.value.trim();
+
+            // Validation
+            if (!currentPassword) {
+                alert('Please enter your current password.');
+                return;
+            }
+
+            if (!newPassword) {
+                alert('Please enter a new password.');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                alert('New password must be at least 6 characters long.');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                alert('New passwords do not match. Please try again.');
+                return;
+            }
+
+            // Attempt to change password
+            const success = await auth.changePassword(currentPassword, newPassword);
+
+            if (success) {
+                showNotification('Password Changed', 'Your password has been updated successfully.', '🔐');
+
+                // Clear the password fields
+                currentPasswordInput.value = '';
+                newPasswordInput.value = '';
+                confirmPasswordInput.value = '';
+            }
+        });
+    }
 
     // --- App Tabs Logic ---
     const appTabBtns = document.querySelectorAll('.app-tab-btn');
@@ -522,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     function checkBadges(meters) {
-        const unlockedBadges = JSON.parse(localStorage.getItem('unlocked_badges') || '[]');
+        const unlockedBadges = safeJSONParse('unlocked_badges', []);
 
         badges.forEach(badge => {
             if (meters >= badge.threshold && !unlockedBadges.includes(badge.id)) {
@@ -533,7 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function unlockBadge(badge) {
         // Save
-        const unlockedBadges = JSON.parse(localStorage.getItem('unlocked_badges') || '[]');
+        const unlockedBadges = safeJSONParse('unlocked_badges', []);
         unlockedBadges.push(badge.id);
         localStorage.setItem('unlocked_badges', JSON.stringify(unlockedBadges));
 
@@ -559,7 +653,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function loadBadges() {
-        const unlockedBadges = JSON.parse(localStorage.getItem('unlocked_badges') || '[]');
+        const unlockedBadges = safeJSONParse('unlocked_badges', []);
         unlockedBadges.forEach(id => updateBadgeUI(id));
     }
 
@@ -608,15 +702,24 @@ document.addEventListener('DOMContentLoaded', () => {
         let totalDistanceKm = 0;
 
         // 1. Get totals from all workouts in history
-        const workoutHistory = JSON.parse(localStorage.getItem('workout_history') || '[]');
+        const workoutHistory = safeJSONParse('workout_history', []);
 
         workoutHistory.forEach(workout => {
-            if (workout.metricType === 'output') {
-                // kJ output - convert to elevation
+            // 1. Calculate Climbing (from kJ)
+            if (workout.outputKj) {
+                const elevationMeters = calculateElevation(workout.outputKj, defaultWeight).meters;
+                totalClimbingMeters += elevationMeters;
+            } else if (workout.metricType === 'output' || (!workout.miles && workout.output)) {
+                // Legacy or simple kJ log
                 const elevationMeters = calculateElevation(workout.output, defaultWeight).meters;
                 totalClimbingMeters += elevationMeters;
+            }
+
+            // 2. Calculate Distance (from Miles)
+            if (workout.miles) {
+                totalDistanceKm += (workout.miles * 1.60934);
             } else if (workout.metricType === 'miles') {
-                // Miles - convert to km
+                // Legacy simple miles log
                 totalDistanceKm += (workout.output * 1.60934);
             }
         });
@@ -686,39 +789,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const logTypeInput = document.getElementById('challenge-log-type');
     const logDateInput = document.getElementById('challenge-log-date');
     const logDescInput = document.getElementById('challenge-log-desc');
-    const logOutputInput = document.getElementById('challenge-log-output');
+    const logKjInput = document.getElementById('challenge-log-kj');
+    const logMilesInput = document.getElementById('challenge-log-miles');
     const logBtn = document.getElementById('challenge-log-workout-btn');
     const targetChallengeSelect = document.getElementById('target-challenge-select');
     // workoutList already defined above
     // profileWeightInput already defined above
 
-    // Workout Metric Toggle
-    let currentWorkoutMetric = 'output'; // 'output' or 'miles'
-
-    // Handle workout metric toggle
-    document.querySelectorAll('[data-unit-type="workout-metric"]').forEach(option => {
-        option.addEventListener('click', function () {
-            const selectedUnit = this.dataset.unit;
-
-            // Update active states
-            document.querySelectorAll('[data-unit-type="workout-metric"]').forEach(opt => {
-                opt.classList.remove('active');
-            });
-            this.classList.add('active');
-
-            // Update current metric
-            currentWorkoutMetric = selectedUnit;
-
-            // Update placeholder
-            if (selectedUnit === 'output') {
-                logOutputInput.placeholder = 'Output (kJ)';
-            } else {
-                logOutputInput.placeholder = 'Miles';
-            }
-        });
-    });
-
-    let workoutHistory = JSON.parse(localStorage.getItem('workout_history') || '[]');
+    let workoutHistory = safeJSONParse('workout_history', []);
+    let editingWorkoutId = null; // Track which workout is being edited
 
     function getIconForType(type) {
         switch (type) {
@@ -737,10 +816,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const type = logTypeInput.value;
         const date = logDateInput.value || new Date().toISOString().split('T')[0];
         const desc = logDescInput.value.trim();
-        const value = parseFloat(logOutputInput.value);
+        const kjValue = parseFloat(logKjInput.value) || null;
+        const milesValue = parseFloat(logMilesInput.value) || null;
 
-        if (!desc || !value || value <= 0) {
-            alert('Please enter a description and valid value.');
+        // Validate: need description and at least one metric
+        if (!desc) {
+            showNotification('Error', 'Please enter a description.', '⚠️');
+            return;
+        }
+
+        if (!kjValue && !milesValue) {
+            showNotification('Error', 'Please enter at least one value (kJ or miles).', '⚠️');
+            return;
+        }
+
+        if ((kjValue && kjValue <= 0) || (milesValue && milesValue <= 0)) {
+            showNotification('Error', 'Values must be greater than zero.', '⚠️');
             return;
         }
 
@@ -749,17 +840,23 @@ document.addEventListener('DOMContentLoaded', () => {
             type,
             date,
             title: desc,
-            output: value,
-            metricType: currentWorkoutMetric // Store which metric was used
+            outputKj: kjValue,
+            miles: milesValue,
+            // Keep legacy 'output' and 'metricType' for backward compatibility
+            output: kjValue || milesValue,
+            metricType: kjValue ? 'output' : 'miles'
         };
 
         workoutHistory.unshift(newWorkout);
         localStorage.setItem('workout_history', JSON.stringify(workoutHistory));
         renderWorkouts();
 
-        // Clear text inputs
+        // Clear inputs
         logDescInput.value = '';
-        logOutputInput.value = '';
+        logKjInput.value = '';
+        logMilesInput.value = '';
+
+        showNotification('Logged', 'Workout logged successfully!', '✅');
     }
 
     if (logBtn) {
@@ -767,8 +864,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Debug check for inputs
-    if (!logTypeInput || !logDateInput || !logDescInput || !logOutputInput) {
-        console.error('One or more log inputs are missing');
+    if (!logTypeInput || !logDateInput || !logDescInput || (!logKjInput && !logMilesInput)) {
+        console.error('One or more log inputs are missing or improperly loaded');
     }
 
     // --- Challenges Logic ---
@@ -807,13 +904,28 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     function getAllClimbingChallenges() {
-        const custom = JSON.parse(localStorage.getItem('custom_climbing_challenges') || '[]');
-        return [...defaultClimbingChallenges, ...custom];
+        const defaults = [
+            { id: 'everest', title: 'Mount Everest', height: 8849, type: 'climbing', image: '/images/challenges/everest.png' },
+            { id: 'k2', title: 'K2', height: 8611, type: 'climbing', image: '/images/challenges/k2.png' },
+            { id: 'kilimanjaro', title: 'Mount Kilimanjaro', height: 5895, type: 'climbing', image: '/images/challenges/kilimanjaro.png' },
+            { id: 'montblanc', title: 'Mont Blanc', height: 4807, type: 'climbing', image: '/images/challenges/montblanc.png' }
+        ];
+        let custom = safeJSONParse('custom_climbing_challenges', []);
+        if (!Array.isArray(custom)) custom = [];
+        return [...defaults, ...custom];
     }
 
     function getAllDistanceChallenges() {
-        const custom = JSON.parse(localStorage.getItem('custom_distance_challenges') || '[]');
-        return [...defaultDistanceChallenges, ...custom];
+        const defaults = [
+            { id: 'marathon', title: 'Marathon', distance: 42.195, type: 'distance', icon: '🏃' },
+            { id: 'ultra', title: 'Ultra Marathon', distance: 100, type: 'distance', icon: '🏃‍♂️' },
+            { id: 'century', title: 'Century Ride', distance: 160.9, type: 'distance', icon: '🚴' },
+            { id: 'cross-country', title: 'Cross Country', distance: 500, type: 'distance', icon: '🌍' },
+            { id: 'tour-de-france', title: 'Tour de France', distance: 3500, type: 'distance', icon: '🇫🇷' }
+        ];
+        let custom = safeJSONParse('custom_distance_challenges', []);
+        if (!Array.isArray(custom)) custom = [];
+        return [...defaults, ...custom];
     }
 
     function getAllChallenges() {
@@ -822,7 +934,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- My Challenges Logic ---
     function getMyChallenges() {
-        return JSON.parse(localStorage.getItem('my_challenges') || '[]');
+        let my = safeJSONParse('my_challenges', []);
+        return Array.isArray(my) ? my : [];
     }
 
     function saveMyChallenges(challenges) {
@@ -925,6 +1038,21 @@ document.addEventListener('DOMContentLoaded', () => {
             // Using primary color for progress, and a faded white for remaining
             ringContainer.style.background = `conic-gradient(var(--primary-color) ${percentage}%, rgba(255,255,255,0.1) 0)`;
 
+            // Dual Unit Calculation
+            let statsDisplay = '';
+
+            if (isClimbing) {
+                // Primary: m, Secondary: ft
+                const currentFt = current * 3.28084;
+                const totalFt = total * 3.28084;
+                statsDisplay = `${Number(current).toFixed(0)} / ${total}m <span style="font-size:0.8em; opacity:0.7">(${currentFt.toFixed(0)} / ${totalFt.toFixed(0)}ft)</span>`;
+            } else {
+                // Primary: km, Secondary: mi
+                const currentMi = current * 0.621371;
+                const totalMi = total * 0.621371;
+                statsDisplay = `${Number(current).toFixed(1)} / ${total}km <span style="font-size:0.8em; opacity:0.7">(${currentMi.toFixed(1)} / ${totalMi.toFixed(1)}mi)</span>`;
+            }
+
             ringContainer.innerHTML = `
                 <div class="challenge-circle-inner">
                     <button class="circle-remove-btn remove-challenge-btn" 
@@ -942,8 +1070,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     <div class="circle-percent">${percentage}%</div>
                     
-                    <div class="circle-stats">
-                        ${Number(current).toFixed(1)} / ${total}${unit}
+                    <div class="circle-stats" style="font-size: 0.85rem;">
+                        ${statsDisplay}
                     </div>
                 </div>
             `;
@@ -1013,7 +1141,7 @@ document.addEventListener('DOMContentLoaded', () => {
             icon: '🚩'
         };
 
-        const custom = JSON.parse(localStorage.getItem('custom_climbing_challenges') || '[]');
+        const custom = safeJSONParse('custom_climbing_challenges', []);
         custom.push(newChallenge);
         localStorage.setItem('custom_climbing_challenges', JSON.stringify(custom));
 
@@ -1049,7 +1177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             icon: '🎯'
         };
 
-        const custom = JSON.parse(localStorage.getItem('custom_distance_challenges') || '[]');
+        const custom = safeJSONParse('custom_distance_challenges', []);
         custom.push(newChallenge);
         localStorage.setItem('custom_distance_challenges', JSON.stringify(custom));
 
@@ -1073,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getChallengeProgress() {
-        return JSON.parse(localStorage.getItem('challenge_progress') || '{}');
+        return safeJSONParse('challenge_progress', {});
     }
 
     function updateTargetChallengeSelect() {
@@ -1127,7 +1255,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function deleteCustomChallenge(id, type) {
         showConfirmation('Are you sure you want to delete this custom challenge template?', () => {
             const key = type === 'climbing' ? 'custom_climbing_challenges' : 'custom_distance_challenges';
-            let custom = JSON.parse(localStorage.getItem(key) || '[]');
+            let custom = safeJSONParse(key, []);
 
             custom = custom.filter(c => c.id !== id);
             localStorage.setItem(key, JSON.stringify(custom));
@@ -1139,39 +1267,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderChallenges() {
-        // Render Climbing Challenges
-        if (climbingChallengesGrid) {
-            climbingChallengesGrid.innerHTML = '';
-            const climbingChallenges = getAllClimbingChallenges();
-            const activeId = getActiveChallenge();
-            const progressMap = getChallengeProgress();
+        try {
+            // Render Climbing Challenges
+            if (climbingChallengesGrid) {
+                climbingChallengesGrid.innerHTML = '';
+                const climbingChallenges = getAllClimbingChallenges();
+                const activeId = getActiveChallenge();
+                const progressMap = getChallengeProgress();
 
-            climbingChallenges.forEach(challenge => {
-                const progress = progressMap[challenge.id] || 0;
-                const percentage = Math.min((progress / challenge.height) * 100, 100).toFixed(1);
-                const isActive = challenge.id === activeId;
-                const isCustom = challenge.id.startsWith('custom_');
+                climbingChallenges.forEach(challenge => {
+                    const progress = progressMap[challenge.id] || 0;
+                    const percentage = Math.min((progress / challenge.height) * 100, 100).toFixed(1);
+                    const isActive = challenge.id === activeId;
+                    const isCustom = challenge.id.startsWith('custom_');
 
-                const card = document.createElement('div');
-                card.className = `challenge-card ${isActive ? 'active-challenge' : ''}`;
+                    const card = document.createElement('div');
+                    card.className = `challenge-card ${isActive ? 'active-challenge' : ''}`;
 
-                let deleteBtnHtml = '';
-                if (isCustom) {
-                    deleteBtnHtml = `
+                    let deleteBtnHtml = '';
+                    if (isCustom) {
+                        deleteBtnHtml = `
                         <button class="btn-icon delete-challenge-btn" data-id="${challenge.id}" data-type="climbing" title="Delete Template" 
                                 style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.5); color: #ff5555;">
                             🗑️
                         </button>
                     `;
-                }
+                    }
 
-                card.innerHTML = `
+                    card.innerHTML = `
                     ${deleteBtnHtml}
                     <div class="challenge-header">
                         ${challenge.image
-                        ? `<img src="${challenge.image}" alt="${challenge.title}" class="challenge-img">`
-                        : `<span class="challenge-icon">${challenge.icon}</span>`
-                    }
+                            ? `<img src="${challenge.image}" alt="${challenge.title}" class="challenge-img">`
+                            : `<span class="challenge-icon">${challenge.icon}</span>`
+                        }
                         <div style="text-align: right;">
                             <div class="challenge-title">${challenge.title}</div>
                             <div class="challenge-height">${challenge.height}m</div>
@@ -1194,43 +1323,43 @@ document.addEventListener('DOMContentLoaded', () => {
                         </button>
                     </div>
                 `;
-                climbingChallengesGrid.appendChild(card);
-            });
-        }
+                    climbingChallengesGrid.appendChild(card);
+                });
+            }
 
-        // Render Distance Challenges
-        if (distanceChallengesGrid) {
-            distanceChallengesGrid.innerHTML = '';
-            const distanceChallenges = getAllDistanceChallenges();
-            const activeId = getActiveChallenge();
-            const progressMap = getChallengeProgress();
+            // Render Distance Challenges
+            if (distanceChallengesGrid) {
+                distanceChallengesGrid.innerHTML = '';
+                const distanceChallenges = getAllDistanceChallenges();
+                const activeId = getActiveChallenge();
+                const progressMap = getChallengeProgress();
 
-            distanceChallenges.forEach(challenge => {
-                const progress = progressMap[challenge.id] || 0;
-                const percentage = Math.min((progress / challenge.distance) * 100, 100).toFixed(1);
-                const isActive = challenge.id === activeId;
-                const isCustom = challenge.id.startsWith('custom_');
+                distanceChallenges.forEach(challenge => {
+                    const progress = progressMap[challenge.id] || 0;
+                    const percentage = Math.min((progress / challenge.distance) * 100, 100).toFixed(1);
+                    const isActive = challenge.id === activeId;
+                    const isCustom = challenge.id.startsWith('custom_');
 
-                const card = document.createElement('div');
-                card.className = `challenge-card ${isActive ? 'active-challenge' : ''}`;
+                    const card = document.createElement('div');
+                    card.className = `challenge-card ${isActive ? 'active-challenge' : ''}`;
 
-                let deleteBtnHtml = '';
-                if (isCustom) {
-                    deleteBtnHtml = `
+                    let deleteBtnHtml = '';
+                    if (isCustom) {
+                        deleteBtnHtml = `
                         <button class="btn-icon delete-challenge-btn" data-id="${challenge.id}" data-type="distance" title="Delete Template"
                                 style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.5); color: #ff5555;">
                             🗑️
                         </button>
                     `;
-                }
+                    }
 
-                card.innerHTML = `
+                    card.innerHTML = `
                     ${deleteBtnHtml}
                     <div class="challenge-header">
                         ${challenge.image
-                        ? `<img src="${challenge.image}" alt="${challenge.title}" class="challenge-img">`
-                        : `<span class="challenge-icon">${challenge.icon}</span>`
-                    }
+                            ? `<img src="${challenge.image}" alt="${challenge.title}" class="challenge-img">`
+                            : `<span class="challenge-icon">${challenge.icon}</span>`
+                        }
                         <div style="text-align: right;">
                             <div class="challenge-title">${challenge.title}</div>
                             <div class="challenge-height">${challenge.distance}km</div>
@@ -1253,34 +1382,37 @@ document.addEventListener('DOMContentLoaded', () => {
                         </button>
                     </div>
                 `;
-                distanceChallengesGrid.appendChild(card);
+                    distanceChallengesGrid.appendChild(card);
+                });
+            }
+
+            // Add Listeners for Add Buttons
+            document.querySelectorAll('.simple-add-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = e.target.dataset.id;
+                    console.log('Add button clicked. ID:', id);
+                    addToMyChallenges(id);
+                });
             });
+
+            // Add Listeners for Delete Custom Buttons
+            document.querySelectorAll('.delete-challenge-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation(); // prevent other clicks
+                    const id = e.target.dataset.id;
+                    const type = e.target.dataset.type;
+                    deleteCustomChallenge(id, type);
+                });
+            });
+
+            updateTargetChallengeSelect();
+        } catch (error) {
+            console.error('Error in renderChallenges:', error);
+            showNotification('Error', 'Failed to load challenges. Data may be corrupted.', '⚠️');
         }
-
-        // Add Listeners for Add Buttons
-        document.querySelectorAll('.simple-add-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = e.target.dataset.id;
-                console.log('Add button clicked. ID:', id);
-                addToMyChallenges(id);
-            });
-        });
-
-        // Add Listeners for Delete Custom Buttons
-        document.querySelectorAll('.delete-challenge-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation(); // prevent other clicks
-                const id = e.target.dataset.id;
-                const type = e.target.dataset.type;
-                deleteCustomChallenge(id, type);
-            });
-        });
-
-        updateTargetChallengeSelect();
     }
 
-    let editingWorkoutId = null;
 
     function renderWorkouts() {
         if (!workoutList) return;
@@ -1344,13 +1476,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             } else {
                 const icon = getIconForType(workout.type) || '💪';
-                const unitLabel = workout.metricType === 'miles' ? 'mi' : 'kJ';
+
+                // Build the display string for metrics
+                let metricDisplay = '';
+                if (workout.outputKj && workout.miles) {
+                    metricDisplay = `${workout.outputKj} kJ • ${workout.miles} mi`;
+                } else if (workout.outputKj) {
+                    metricDisplay = `${workout.outputKj} kJ`;
+                } else if (workout.miles) {
+                    metricDisplay = `${workout.miles} mi`;
+                } else {
+                    // Legacy support for old data
+                    const unitLabel = workout.metricType === 'miles' ? 'mi' : 'kJ';
+                    metricDisplay = `${workout.output} ${unitLabel}`;
+                }
 
                 item.innerHTML = `
-                    <input type="checkbox" class="workout-checkbox" data-output="${workout.output}">
-                    <div class="workout-info">
-                        <span class="workout-title">${icon} ${workout.title}</span>
-                        <span class="workout-meta">${workout.date} • ${workout.output} ${unitLabel}</span>
+                    <div style="display: flex; align-items: center; margin-right: 0.75rem;">
+                        <input type="checkbox" class="workout-checkbox" data-id="${workout.id}" style="cursor: pointer; transform: scale(1.2);">
+                    </div>
+                    <div class="workout-icon">${icon}</div>
+                    <div class="workout-details">
+                        <div class="workout-title">${workout.title}</div>
+                        <div class="workout-meta">${workout.date} • ${metricDisplay}</div>
+                        ${workout.desc ? `<div class="workout-desc" style="font-size: 0.8rem; color: #aaa; margin-top: 0.2rem;">${workout.desc}</div>` : ''}
                     </div>
                     <div class="workout-actions">
                         <button class="btn-icon edit" data-id="${workout.id}" title="Edit">✏️</button>
@@ -1414,6 +1563,75 @@ document.addEventListener('DOMContentLoaded', () => {
                 showNotification('Deleted', 'Workout log deleted.', '🗑️');
             });
         });
+
+        // --- Bulk Selection Logic ---
+        const selectAllCheckbox = document.getElementById('select-all-workouts');
+        const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+        const allCheckboxes = document.querySelectorAll('.workout-checkbox');
+
+        const updateBulkUI = () => {
+            const checkedCount = document.querySelectorAll('.workout-checkbox:checked').length;
+            if (checkedCount > 0) {
+                if (bulkDeleteBtn) {
+                    bulkDeleteBtn.style.display = 'block';
+                    bulkDeleteBtn.innerHTML = `🗑️ Delete (${checkedCount})`;
+                }
+            } else {
+                if (bulkDeleteBtn) bulkDeleteBtn.style.display = 'none';
+            }
+
+            // Update Master Checkbox state
+            if (allCheckboxes.length > 0 && selectAllCheckbox) {
+                selectAllCheckbox.checked = checkedCount === allCheckboxes.length;
+                selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
+            } else if (selectAllCheckbox) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            }
+        };
+
+        if (selectAllCheckbox) {
+            // Reset master checkbox state on re-render to avoid out-of-sync UI
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+            if (bulkDeleteBtn) bulkDeleteBtn.style.display = 'none';
+
+            // Clone to remove old listeners (simple way to avoid duplicates on re-render)
+            const newSelectAll = selectAllCheckbox.cloneNode(true);
+            selectAllCheckbox.parentNode.replaceChild(newSelectAll, selectAllCheckbox);
+
+            newSelectAll.addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                document.querySelectorAll('.workout-checkbox').forEach(cb => {
+                    cb.checked = isChecked;
+                });
+                updateBulkUI();
+            });
+        }
+
+        // Listener for individual checkboxes
+        allCheckboxes.forEach(cb => {
+            cb.addEventListener('change', updateBulkUI);
+        });
+
+        // Bulk Delete Action
+        if (bulkDeleteBtn) {
+            const newBulkDelete = bulkDeleteBtn.cloneNode(true);
+            bulkDeleteBtn.parentNode.replaceChild(newBulkDelete, bulkDeleteBtn);
+
+            newBulkDelete.addEventListener('click', () => {
+                const selectedIds = Array.from(document.querySelectorAll('.workout-checkbox:checked')).map(cb => cb.dataset.id);
+                if (selectedIds.length === 0) return;
+
+                showConfirmation(`Delete ${selectedIds.length} workouts? This cannot be undone.`, () => {
+                    workoutHistory = workoutHistory.filter(w => !selectedIds.includes(w.id.toString()));
+                    saveWorkouts();
+                    renderWorkouts();
+                    renderChallenges(); // Re-calc progress
+                    showNotification('Deleted', `${selectedIds.length} workouts removed.`, '🗑️');
+                });
+            });
+        }
     }
 
     function saveWorkout(id) {
@@ -1460,11 +1678,20 @@ document.addEventListener('DOMContentLoaded', () => {
         let totalKj = 0;
 
         checkedBoxes.forEach(cb => {
-            totalKj += parseInt(cb.dataset.output);
+            const wId = parseInt(cb.dataset.id);
+            const w = workoutHistory.find(h => h.id === wId);
+            if (w) {
+                if (w.outputKj) {
+                    totalKj += w.outputKj;
+                } else if (w.metricType !== 'miles') {
+                    // Assume output is kJ if not miles
+                    totalKj += w.output;
+                }
+            }
         });
 
-        challengeSummary.textContent = `${totalKj} kJ selected`;
-        addToChallengeBtn.disabled = totalKj === 0;
+        challengeSummary.textContent = `${totalKj.toFixed(0)} kJ selected (for climbing)`;
+        addToChallengeBtn.disabled = checkedBoxes.length === 0; // Enable if any selection, let specific logic handle 0-value cases
 
         return totalKj;
     }
@@ -1485,12 +1712,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 3. Update Progress for TARGET challenge
             const targetId = document.getElementById('target-challenge-select').value;
+            // console.log('DEBUG: Add Btn Clicked. Target:', targetId); 
 
             // Check if it's a "My Challenge" (instance) or a global one (legacy/fallback)
             // Our new IDs start with "my_"
 
             const myChallenges = getMyChallenges();
             const instanceIndex = myChallenges.findIndex(c => c.instanceId === targetId);
+            // console.log('DEBUG: Instance Index:', instanceIndex);
 
             let challengeTitle = "Unknown Challenge";
 
@@ -1515,36 +1744,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     let totalDistanceKm = 0;
 
                     checkedBoxes.forEach(cb => {
-                        // We need to find the full workout object to get its metric type
-                        // We can trace back from the checkbox -> parent -> lookup by ID?
-                        // The checkbox doesn't currently store the ID.
-                        // Let's rely on looking up the workouts via the current list in memory 'workoutHistory'
-                        // matching by... wait, it's safer to improve the checkbox to store the ID.
+                        const wId = parseInt(cb.dataset.id);
+                        const w = workoutHistory.find(h => h.id === wId);
 
-                        // BUT, to avoid breaking too much, let's look at the structure rendered:
-                        // <button class="btn-icon edit" data-id="${workout.id}" ...>
-                        // The checkbox is in the same .workout-item as the edit button.
-
-                        const item = cb.closest('.workout-item');
-                        const editBtn = item.querySelector('.btn-icon.edit');
-                        if (editBtn) {
-                            const wId = parseInt(editBtn.dataset.id);
-                            const w = workoutHistory.find(h => h.id === wId);
-
-                            if (w) {
-                                if (w.metricType === 'miles') {
-                                    // Miles -> Km
-                                    totalDistanceKm += (w.output * 1.60934);
-                                } else {
-                                    // kJ -> Cannot easily convert to distance without speed/time assumptions.
-                                    // For now, we will IGNORE kJ logs for Distance challenges to avoid cheating/errors,
-                                    // OR we could warn.
-                                    // Let's just not add them to the total.
-                                    console.warn(`Skipping workout ${w.id} for distance challenge: Metric is kJ`);
-                                }
+                        if (w) {
+                            // Check for explicit miles first
+                            if (w.metricType === 'miles') {
+                                // Miles -> Km
+                                totalDistanceKm += (w.output * 1.60934);
+                            } else if (w.miles) {
+                                // If workout has both (legacy or dual logging), use the explicit miles field
+                                totalDistanceKm += (w.miles * 1.60934);
+                            } else {
+                                // kJ only. We cannot safely convert to distance.
+                                // Warn the user but continue.
+                                console.warn(`Skipping workout ${w.id} for distance challenge: Metric is kJ only.`);
                             }
                         }
                     });
+                    // console.log('DEBUG: Calculated Distance (km):', totalDistanceKm);
 
                     addedValue = totalDistanceKm;
                 }
@@ -1558,14 +1776,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // 4. Update UI
                     renderChallenges();
-                    alert(`🔥 Awesome! Added ${addedValue.toFixed(1)}${instance.type === 'climbing' ? 'm' : 'km'} to ${challengeTitle}.`);
+
+                    // Replaced alert with showNotification
+                    const unitLabel = instance.type === 'climbing' ? 'm' : 'km';
+                    showNotification('Progress Added', `🔥 Added ${addedValue.toFixed(1)}${unitLabel} to ${challengeTitle}!`, '🚀');
 
                     // Switch tab to Challenges to see progress?
                     // Optional: maybe stay here so they can add more?
                     // switching to see the bar is rewarding though.
                     document.querySelector('[data-tab="mychallenges"]').click();
                 } else {
-                    alert("⚠️ No compatible distance workouts selected. Please log workouts in 'Miles' for distance challenges.");
+                    showNotification('No Progress', "⚠️ No compatible workouts selected (check units).", '⚠️');
                 }
 
             } else {
@@ -1582,7 +1803,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // 4. Update UI (Legacy)
                 renderChallenges();
-                alert(`🔥 Awesome! Added progress to ${challengeTitle}.`);
+                showNotification('Progress Added', `🔥 Added progress to ${challengeTitle}!`, '🚀');
 
                 // Switch tab to Challenges to see progress?
                 document.querySelector('[data-tab="challenges"]').click();
@@ -1593,7 +1814,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function repairData() {
         // Fix potential issues with my_challenges
         try {
-            const myChallenges = JSON.parse(localStorage.getItem('my_challenges') || '[]');
+            const myChallenges = safeJSONParse('my_challenges', []);
             let changed = false;
             const validChallenges = myChallenges.filter(c => {
                 const isValid = c && c.instanceId && c.title;
@@ -1618,10 +1839,10 @@ document.addEventListener('DOMContentLoaded', () => {
         repairData(); // Run repair first
 
         // 1. Migrate 'custom_challenges' to 'custom_climbing_challenges' (assuming they are climbing if they have height)
-        const legacyCustom = JSON.parse(localStorage.getItem('custom_challenges') || '[]');
+        const legacyCustom = safeJSONParse('custom_challenges', []);
         if (legacyCustom.length > 0) {
             console.log('Migrating legacy custom challenges...', legacyCustom);
-            let climbing = JSON.parse(localStorage.getItem('custom_climbing_challenges') || '[]');
+            let climbing = safeJSONParse('custom_climbing_challenges', []);
 
             legacyCustom.forEach(c => {
                 // Avoid duplicates by ID or Title
@@ -1643,10 +1864,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 2. Check 'challenges' key just in case (another legacy key found)
-        const legacyChallenges = JSON.parse(localStorage.getItem('challenges') || '[]');
+        const legacyChallenges = safeJSONParse('challenges', []);
         if (legacyChallenges.length > 0) {
             console.log('Migrating legacy "challenges"...', legacyChallenges);
-            let climbing = JSON.parse(localStorage.getItem('custom_climbing_challenges') || '[]');
+            let climbing = safeJSONParse('custom_climbing_challenges', []);
 
             legacyChallenges.forEach(c => {
                 if (c.isCustom) {
@@ -1681,14 +1902,61 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Firebase Auth State Listener ---
+    // This automatically logs the user in if they were previously authenticated
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            console.log('✅ User is signed in:', user.email);
+            // User is signed in, update UI if needed
+            const currentUser = auth.getUser();
+            if (currentUser && userInitials) {
+                let text = 'U';
+                if (currentUser.name) {
+                    text = currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                } else if (currentUser.username) {
+                    text = currentUser.username.substring(0, 2).toUpperCase();
+                }
+                userInitials.textContent = text;
+            }
+        } else {
+            console.log('❌ User is signed out');
+        }
+    });
+
     // --- Init ---
-    migrateLegacyData(); // Run migration before rendering
-    checkAuth();
-    loadSettings();
-    loadTheme();
-    loadBadges();
-    renderWorkouts();
-    renderChallenges();
-    renderMyChallenges();
-    renderAchievementFacts(); // Render facts in achievements tab
+    // --- Reset Defaults Logic ---
+    const resetBtn = document.getElementById('reset-challenges-btn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            if (confirm('This will restore the original challenges (Everest, etc.) and clear potentially corrupted challenge data. Your workout history will be safe. Continue?')) {
+                // Clear all challenge-related keys to force a clean slate for definitions
+                localStorage.removeItem('custom_climbing_challenges');
+                localStorage.removeItem('custom_distance_challenges');
+                // We do NOT clear 'my_challenges' or 'challenge_progress' so user doesn't lose progress on existing ones.
+                // However, if the challenge definition is gone from 'my_challenges' but exists in defaults, it should be fine.
+                // If the user wants a FULL reset, they can clear site data.
+                // This is specifically to fix the "missing challenges" bug.
+
+                // Force reload to re-run the default hydration logic
+                location.reload();
+            }
+        });
+    }
+
+    try {
+        migrateLegacyData();
+        checkAuth();
+        loadSettings();
+        loadTheme();
+        loadBadges();
+        renderWorkouts();
+        renderChallenges();
+        renderMyChallenges();
+        renderAchievementFacts(); // Render facts in achievements tab
+    } catch (e) {
+        console.error('CRITICAL: Main.js Initialization Failed!', e);
+        if (typeof showNotification === 'function') {
+            showNotification('App Error', 'Failed to initialize application.', '❌');
+        }
+    }
 });

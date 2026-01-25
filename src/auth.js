@@ -1,47 +1,160 @@
+// Firebase Authentication Module
+import {
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged,
+    updateProfile,
+    updatePassword,
+    reauthenticateWithCredential,
+    EmailAuthProvider,
+    setPersistence,
+    browserLocalPersistence,
+    browserSessionPersistence
+} from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+import { auth as firebaseAuth } from './firebase-config.js';
+
 export const auth = {
+    // Current user cache
+    currentUser: null,
+
+    // Check if user is authenticated
     isAuthenticated() {
-        return !!localStorage.getItem('bike_user') || !!sessionStorage.getItem('bike_user');
+        return firebaseAuth.currentUser !== null;
     },
 
+    // Get current user data
     getUser() {
-        const user = localStorage.getItem('bike_user') || sessionStorage.getItem('bike_user');
-        return user ? JSON.parse(user) : null;
-    },
-
-    signup(name, email, username, password) {
-        // In a real app, this would check against a database
-        // For now, we just "log them in" immediately (default to session only for safety or local? let's stick to local for signup convenience or mirroring logic. 
-        // Actually typically signup logs you in "remembered" or not? Let's just default to sessionStorage for signup unless implied otherwise, but simpler to just default to local as before or match login.
-        // The original code used localStorage. Let's keep it consistent or just default to session. 
-        // Let's use sessionStorage for new signups to be safe, or just localStorage as it was. 
-        // Let's stick to localStorage for signup to minimize friction, or maybe session makes more sense if they didn't explicitly check "remember me" (which isn't on signup).
-        // Let's use localStorage to maintain previous behavior of always "remembering" effectively, or switch to session. 
-        // I'll stick to localStorage for signup as it was the default behavior before.
-        const user = { name, email, username, password };
-        localStorage.setItem('bike_user', JSON.stringify(user));
-        return true;
-    },
-
-    login(username, password, remember = false) {
-        // Mock login - accepts any username/password for now as we don't have a DB of users
-        // Or we could strictly check against what was just signed up, but that's brittle for a demo
-
-        // Let's just set the user for this session
-        const user = { username, password: remember ? password : undefined };
-
-        if (remember) {
-            localStorage.setItem('bike_user', JSON.stringify(user));
-            // Also save credentials separately for auto-fill
-            localStorage.setItem('saved_credentials', JSON.stringify({ username, password }));
-        } else {
-            sessionStorage.setItem('bike_user', JSON.stringify(user));
+        const user = firebaseAuth.currentUser;
+        if (user) {
+            return {
+                uid: user.uid,
+                email: user.email,
+                name: user.displayName || user.email?.split('@')[0] || 'User',
+                username: user.displayName || user.email?.split('@')[0] || 'User'
+            };
         }
-        return true;
+        return null;
     },
 
-    logout() {
-        localStorage.removeItem('bike_user');
-        sessionStorage.removeItem('bike_user');
-        localStorage.removeItem('saved_credentials');
+    // Sign up new user with Firebase Authentication
+    async signup(name, email, username, password) {
+        try {
+            // Create user account with email and password
+            const userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+
+            // Update user profile with display name
+            await updateProfile(userCredential.user, {
+                displayName: name || username
+            });
+
+            console.log('✅ User signed up successfully:', userCredential.user.email);
+            return true;
+        } catch (error) {
+            console.error('❌ Signup error:', error.code, error.message);
+
+            // User-friendly error messages
+            if (error.code === 'auth/email-already-in-use') {
+                alert('This email is already registered. Please login instead.');
+            } else if (error.code === 'auth/weak-password') {
+                alert('Password should be at least 6 characters.');
+            } else if (error.code === 'auth/invalid-email') {
+                alert('Please enter a valid email address.');
+            } else {
+                alert('Signup failed: ' + error.message);
+            }
+            return false;
+        }
+    },
+
+    // Login user with Firebase Authentication
+    async login(username, password, remember = false) {
+        try {
+            // Configure Firebase persistence based on "Remember Me" setting
+            // - browserLocalPersistence: User stays logged in across browser sessions
+            // - browserSessionPersistence: User is logged out when browser/tab closes
+            const persistence = remember ? browserLocalPersistence : browserSessionPersistence;
+            await setPersistence(firebaseAuth, persistence);
+
+            // Note: Firebase uses email for login, so 'username' parameter should be email
+            const userCredential = await signInWithEmailAndPassword(firebaseAuth, username, password);
+
+            console.log('✅ User logged in successfully:', userCredential.user.email);
+            console.log(`🔐 Persistence mode: ${remember ? 'LOCAL (persistent)' : 'SESSION (temporary)'}`);
+
+            return true;
+        } catch (error) {
+            console.error('❌ Login error:', error.code, error.message);
+
+            // User-friendly error messages
+            if (error.code === 'auth/user-not-found') {
+                alert('No account found with this email. Please sign up first.');
+            } else if (error.code === 'auth/wrong-password') {
+                alert('Incorrect password. Please try again.');
+            } else if (error.code === 'auth/invalid-email') {
+                alert('Please enter a valid email address.');
+            } else if (error.code === 'auth/too-many-requests') {
+                alert('Too many failed login attempts. Please try again later.');
+            } else {
+                alert('Login failed: ' + error.message);
+            }
+            return false;
+        }
+    },
+
+    // Logout user
+    async logout() {
+        try {
+            await signOut(firebaseAuth);
+            console.log('✅ User logged out successfully');
+        } catch (error) {
+            console.error('❌ Logout error:', error);
+            alert('Logout failed: ' + error.message);
+        }
+    },
+
+    // Change user password
+    async changePassword(currentPassword, newPassword) {
+        try {
+            const user = firebaseAuth.currentUser;
+
+            if (!user || !user.email) {
+                alert('No user is currently logged in.');
+                return false;
+            }
+
+            // Re-authenticate user first (required for sensitive operations like password change)
+            const credential = EmailAuthProvider.credential(user.email, currentPassword);
+            await reauthenticateWithCredential(user, credential);
+
+            // Update password
+            await updatePassword(user, newPassword);
+
+            console.log('✅ Password changed successfully');
+            return true;
+        } catch (error) {
+            console.error('❌ Password change error:', error.code, error.message);
+
+            // User-friendly error messages
+            if (error.code === 'auth/wrong-password') {
+                alert('Current password is incorrect. Please try again.');
+            } else if (error.code === 'auth/weak-password') {
+                alert('New password should be at least 6 characters.');
+            } else if (error.code === 'auth/requires-recent-login') {
+                alert('For security reasons, please log out and log back in before changing your password.');
+            } else {
+                alert('Password change failed: ' + error.message);
+            }
+            return false;
+        }
+    },
+
+    // Initialize auth state listener
+    // Call this when your app loads to handle automatic login
+    onAuthStateChanged(callback) {
+        return onAuthStateChanged(firebaseAuth, (user) => {
+            this.currentUser = user;
+            callback(user);
+        });
     }
 };
