@@ -5,6 +5,9 @@ import { database } from './src/db.js'
 import { auth as firebaseAuth } from './src/firebase-config.js'
 import html2canvas from 'html2canvas';
 
+console.log('🚀 App Loaded - Version 1.2 - Debug Mode ON');
+window.APP_VERSION = '1.2';
+
 // Central State
 let appData = {
     settings: {}, // weight, goal, units, theme
@@ -16,7 +19,8 @@ let appData = {
         active: null
     },
     badges: [],
-    progress: {}
+    progress: {},
+    trophies: []
 };
 
 const DEFAULT_CHALLENGES = [
@@ -275,6 +279,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const customDistance = await database.getChallenges('custom_distance');
             appData.challenges.distance = Array.isArray(customDistance) ? customDistance : [];
 
+            // 5. Trophies
+            const trophies = await database.getTrophies();
+            appData.trophies = Array.isArray(trophies) ? trophies : [];
+
             console.log('✅ Cloud Data Loaded:', appData);
 
         } catch (e) {
@@ -285,8 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderWorkouts();
             renderMyChallenges();
             renderChallenges();
-            renderAchievementFacts();
             loadBadges();
+            renderTrophies();
+            syncTrophies();
             loadSettingsToUI();
         }
     }
@@ -302,7 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // only auto-switch if we were on landing, not if we were clicking around
             }
 
-            // Set Initials
+            // Set Initials and Debug Info
             const currentUser = auth.getUser();
             if (currentUser && userInitials) {
                 let text = 'U';
@@ -312,6 +321,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     text = currentUser.username.substring(0, 2).toUpperCase();
                 }
                 userInitials.textContent = text;
+                // Debugging: Hover to see email
+                userInitials.parentElement.title = `Logged in as: ${currentUser.email}`;
+            }
+
+            // Environment Indicator
+            if (window.location.hostname.includes('dev') || window.location.hostname.includes('localhost')) {
+                const badge = document.createElement('div');
+                badge.style.cssText = 'position:fixed; bottom:10px; right:10px; background:red; color:white; padding:5px 10px; border-radius:5px; font-size:12px; z-index:9999; pointer-events:none; opacity:0.7;';
+                badge.innerText = `DEV MODE (${window.location.hostname})`;
+                document.body.appendChild(badge);
             }
 
             // MIGRATION & LOAD
@@ -502,7 +521,6 @@ document.addEventListener('DOMContentLoaded', () => {
             tabContents[target].classList.add('active');
 
             if (target === 'myworkouts') updateTargetChallengeSelect();
-            if (target === 'profile') renderAchievementFacts();
         });
     });
 
@@ -1345,6 +1363,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (revertedCount > 0) {
             console.log(`↩️ Reverted ${revertedCount} challenge contributions`);
             await saveMyChallengesProp();
+            await syncTrophies(); // Ensure trophies are synced after reverting progress
         }
 
         // 3. Delete from cloud
@@ -1437,6 +1456,316 @@ document.addEventListener('DOMContentLoaded', () => {
         appData.badges.forEach(id => updateBadgeUI(id));
     }
 
+    // --- Trophy Logic ---
+    async function syncTrophies() {
+        console.log('🔄 Syncing trophies (awards and removals)...');
+        const myChallenges = appData.challenges.my || [];
+        const trophies = appData.trophies || [];
+        let changed = false;
+
+        console.log(`📊 Current State: ${myChallenges.length} active challenges, ${trophies.length} trophies.`);
+
+        // 1. Add missing trophies
+        myChallenges.forEach(challenge => {
+            const total = challenge.type === 'climbing' ? challenge.height : challenge.distance;
+            const progress = parseFloat(challenge.progress) || 0;
+            const isCompleted = progress >= parseFloat(total) - 0.1;
+
+            if (isCompleted) {
+                const existing = trophies.find(t => t.instanceId === challenge.instanceId || (t.challengeId === challenge.id && !t.instanceId));
+                if (!existing) {
+                    console.log('✨ Awarding trophy for:', challenge.title);
+                    const trophy = {
+                        id: 'trophy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                        instanceId: challenge.instanceId,
+                        challengeId: challenge.id,
+                        title: challenge.title,
+                        type: challenge.type,
+                        dateEarned: new Date().toISOString(),
+                        height: challenge.height || null,
+                        distance: challenge.distance || null
+                    };
+                    appData.trophies.unshift(trophy);
+                    changed = true;
+                }
+            }
+        });
+
+        // 2. Remove orphaned trophies
+        const initialCount = appData.trophies.length;
+        appData.trophies = appData.trophies.filter(trophy => {
+            // Find the corresponding challenge in active list
+            const challenge = myChallenges.find(c =>
+                c.instanceId === trophy.instanceId ||
+                (c.id === trophy.challengeId && !trophy.instanceId) ||
+                (c.title === trophy.title && !trophy.instanceId && !trophy.challengeId)
+            );
+
+            // If challenge exists in active list but is NOT complete, REMOVE trophy
+            if (challenge) {
+                const total = challenge.type === 'climbing' ? challenge.height : challenge.distance;
+                const isCompleted = parseFloat(challenge.progress) >= parseFloat(total) - 0.1;
+
+                if (!isCompleted) {
+                    console.log(`🗑️ Removing trophy for incomplete challenge: "${trophy.title}" (Progress: ${challenge.progress}/${total})`);
+                    return false;
+                }
+                return true;
+            }
+
+            // If challenge NOT found in active list:
+            // This is tricky. Do we keep historical trophies for challenges the user has "removed"?
+            // Usually YES, unless the user wants to nuke everything.
+            // But if the user says "it's still there" after deleting a workout, they likely expect it to be gone.
+            // However, a common scenario for it being "still there" but unexpected is if there's a DUPLICATE 
+            // or a LEGACY trophy that doesn't share an instanceId.
+
+            return true; // Keep trophies for challenges not in the active list (historic)
+        });
+
+        if (appData.trophies.length !== initialCount) {
+            changed = true;
+            console.log(`🧹 syncTrophies: Removed ${initialCount - appData.trophies.length} trophies.`);
+        }
+
+        if (changed) {
+            await database.saveTrophies(appData.trophies);
+            renderTrophies();
+            if (appData.trophies.length < initialCount) {
+                showNotification('Trophies Updated', 'Trophy case updated.', '🏆');
+            } else if (appData.trophies.length > initialCount) {
+                showNotification('Trophies Updated', 'New trophy awarded!', '🏆');
+            }
+        } else {
+            console.log('✅ Trophies already in sync.');
+        }
+    }
+
+    // Expose for manual console debug
+    window.syncTrophies = syncTrophies;
+
+    async function awardTrophy(challenge) {
+        const existing = appData.trophies.find(t => t.instanceId === challenge.instanceId);
+        if (existing) return;
+
+        const trophy = {
+            id: 'trophy_' + Date.now(),
+            instanceId: challenge.instanceId,
+            challengeId: challenge.id,
+            title: challenge.title,
+            type: challenge.type,
+            dateEarned: new Date().toISOString(),
+            height: challenge.height || null,
+            distance: challenge.distance || null
+        };
+
+        appData.trophies.unshift(trophy); // Add to top
+
+        try {
+            await database.saveTrophies(appData.trophies);
+        } catch (error) {
+            console.error('Error saving trophy:', error);
+        }
+
+        renderTrophies();
+        showNotification('Trophy Earned!', `${challenge.title} completed!`, '🏆');
+    }
+
+    function showTrophySummary(trophy) {
+        console.log('🏆 Showing summary for:', trophy.title);
+
+        // 1. Find the challenge data
+        const challenge = appData.challenges.my.find(c => c.instanceId === trophy.instanceId);
+
+        // 2. Aggregate Stats (Default to 0 if challenge missing)
+        let totalTime = 0;
+        let totalKj = 0;
+        let totalDist = 0;
+        let totalElev = 0;
+        let workoutCount = 0;
+        let firstDate = null;
+        let lastDate = null;
+
+        if (challenge && challenge.contributions) {
+            const contributions = challenge.contributions || [];
+            const contributingWorkouts = [];
+
+            contributions.forEach(contrib => {
+                const workout = appData.workouts.find(w => w.id === contrib.workoutId);
+                if (workout) contributingWorkouts.push(workout);
+            });
+
+            contributingWorkouts.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            contributingWorkouts.forEach(w => {
+                workoutCount++;
+                // Time
+                if (w.duration) {
+                    const parts = w.duration.split(':');
+                    if (parts.length === 2) totalTime += (parseInt(parts[0]) * 60) + parseInt(parts[1]);
+                }
+                // KJ
+                if (w.outputKj) totalKj += parseFloat(w.outputKj);
+                // Distance
+                if (w.miles) totalDist += parseFloat(w.miles);
+                // Elevation
+                if (w.elevation) totalElev += parseFloat(w.elevation);
+
+                // Dates
+                if (!firstDate) firstDate = w.date;
+                lastDate = w.date;
+            });
+        }
+
+        // 3. Format Data
+        const daysTaken = firstDate && lastDate ? Math.max(1, Math.round((new Date(lastDate) - new Date(firstDate)) / (1000 * 60 * 60 * 24)) + 1) : 1;
+
+        const hours = Math.floor(totalTime / 60);
+        const minutes = totalTime % 60;
+        const timeStr = `${hours}h ${minutes}m`;
+
+        // 4. Render Modal
+        const overlay = document.createElement('div');
+        overlay.className = 'confirmation-overlay';
+
+        const modal = document.createElement('div');
+        modal.className = 'confirmation-modal';
+        modal.style.maxWidth = '500px';
+        modal.style.width = '95%';
+        modal.style.textAlign = 'left';
+        modal.style.background = 'linear-gradient(135deg, #1e293b, #0f172a)';
+        modal.style.boxShadow = '0 10px 40px rgba(0,0,0,0.7)';
+        modal.style.border = '1px solid rgba(255,255,255,0.1)';
+
+        const gridItem = (label, value) => `
+            <div style="background: rgba(255,255,255,0.05); padding: 0.75rem; border-radius: 8px; text-align: center;">
+                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">${label}</div>
+                <div style="font-size: 1.1rem; font-weight: 600; color: #f8fafc;">${value}</div>
+            </div>
+        `;
+
+        modal.innerHTML = `
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <div style="font-size: 3rem; margin-bottom: 0.5rem; text-shadow: 0 0 20px rgba(255,215,0,0.5);">🏆</div>
+                <h2 style="margin: 0; font-size: 1.5rem; color: white;">${trophy.title}</h2>
+                <div style="color: #94a3b8; font-size: 0.9rem; margin-top: 0.25rem;">Completed on ${new Date(trophy.dateEarned).toLocaleDateString()}</div>
+                ${!challenge ? '<div style="color:#eab308; font-size:0.8rem; margin-top:0.5rem;">(Detailed history not available)</div>' : ''}
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem;">
+                 ${gridItem('Workouts', workoutCount)}
+                 ${gridItem('Days Taken', daysTaken)}
+                 ${gridItem('Total Time', timeStr)}
+                 ${gridItem('Total kJ', Math.round(totalKj).toLocaleString())}
+                 ${gridItem('Total Distance', totalDist.toFixed(1) + ' mi')}
+                 ${gridItem('Elevation Gain', Math.round(totalElev).toLocaleString() + ' ft')}
+            </div>
+            
+            <div style="font-size: 0.85rem; color: #64748b; text-align: center; margin-bottom: 1.5rem; font-style: italic;">
+                "${firstDate ? formatDateForDisplay(firstDate) : 'Unknown'}  ➔  ${lastDate ? formatDateForDisplay(lastDate) : 'Unknown'}"
+            </div>
+
+            <div style="text-align: center;">
+                <button class="btn-primary" id="close-trophy-modal" style="width: 100%; border-radius: 8px; padding: 0.75rem;">Close Summary</button>
+            </div>
+        `;
+
+        const close = () => {
+            overlay.classList.add('fade-out');
+            setTimeout(() => overlay.remove(), 200);
+        };
+
+        const closeBtn = modal.querySelector('#close-trophy-modal');
+        if (closeBtn) closeBtn.addEventListener('click', close);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close();
+        });
+    }
+
+    function renderTrophies() {
+        const container = document.getElementById('trophy-case-grid');
+        if (!container) return;
+
+        const syncHtml = `
+            <div style="grid-column: 1/-1; text-align: right; margin-bottom: 0.5rem;">
+                <button id="manual-sync-trophies" style="background:none; border:none; color:#64748b; font-size:0.75rem; cursor:pointer; text-decoration:underline;">
+                    🔄 Sync Case
+                </button>
+            </div>
+        `;
+
+        if (appData.trophies.length === 0) {
+            container.innerHTML = syncHtml + '<div style="grid-column: 1/-1; text-align:center; color:#888; font-style:italic; padding: 1rem;">Complete challenges to earn trophies!</div>';
+            attachSyncListener();
+            return;
+        }
+
+        container.innerHTML = syncHtml;
+        appData.trophies.forEach(t => {
+            const div = document.createElement('div');
+            div.className = 'trophy-card';
+            div.style.cursor = 'pointer'; // Make it look clickable
+
+            // Icon based on type
+            let icon = '🏆';
+            if (t.type === 'climbing') icon = '🏔️';
+            if (t.type === 'distance') {
+                icon = '🏃'; // Default to run
+                // Override for known bike challenges
+                const bikeIds = ['dia-de-los-muertos', 'century', 'la-sf', 'london-paris'];
+                // Check ID or Title (case insensitive)
+                if (bikeIds.includes(t.challengeId) || (t.title && t.title.toLowerCase().includes('ride'))) {
+                    icon = '🚴';
+                }
+            }
+
+            // Simple date formatting
+            const dateStr = new Date(t.dateEarned).toLocaleDateString();
+            const index = appData.trophies.indexOf(t);
+
+            div.innerHTML = `
+                <div class="trophy-icon">${icon}</div>
+                <div class="trophy-info">
+                    <div class="trophy-title">${t.title}</div>
+                    <div class="trophy-date">${dateStr}</div>
+                </div>
+            `;
+
+            // Absolute Robust Click
+            div.setAttribute('onclick', `window.handleTrophyClick(${index})`);
+
+            container.appendChild(div);
+        });
+        attachSyncListener();
+        console.log('✅ Rendered trophies v1.3:', appData.trophies.length);
+    }
+
+    function attachSyncListener() {
+        const btn = document.getElementById('manual-sync-trophies');
+        if (btn) {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                btn.textContent = '⌛ Syncing...';
+                await syncTrophies();
+                btn.textContent = '🔄 Sync Case';
+                showNotification('Synced', 'Trophy case synchronized.', '🏆');
+            });
+        }
+    }
+
+    // Expose summary globally for onclick
+    window.handleTrophyClick = (index) => {
+        const trophy = appData.trophies[index];
+        if (trophy) {
+            console.log('🏆 Global Trophy Click:', trophy.title);
+            showTrophySummary(trophy);
+        }
+    };
+
     function showCelebrationModal(challenge) {
         console.log('Showing modal for:', challenge.title);
         const overlay = document.createElement('div');
@@ -1456,8 +1785,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <h2 class="celebration-title">Summit Reached!</h2>
             <p class="celebration-message">You conquered the <strong>${challenge.title}</strong> challenge!</p>
             <div class="celebration-actions">
-                <button class="btn-celebrate-share">Share Snap �</button>
-                <button class="btn-celebrate-copy">Copy Image �</button>
                 <button class="btn-celebrate-close">Close</button>
             </div>
         `;
@@ -1558,8 +1885,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        modal.querySelector('.btn-celebrate-share').addEventListener('click', () => handleCapture('share'));
-        modal.querySelector('.btn-celebrate-copy').addEventListener('click', () => handleCapture('copy'));
+        // modal.querySelector('.btn-celebrate-share').addEventListener('click', () => handleCapture('share'));
+        // modal.querySelector('.btn-celebrate-copy').addEventListener('click', () => handleCapture('copy'));
 
         modal.querySelector('.btn-celebrate-close').addEventListener('click', close);
 
@@ -1629,244 +1956,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    // --- Stats ---
-    function calculateTotalProgress() {
-        let weight = parseFloat(appData.settings.weight) || 80;
-        if (appData.settings.unit_weight === 'lbs') weight *= 0.453592;
-
-        let totalClimb = 0;
-        let totalDist = 0;
-        let cyclingDist = 0;
-        let runningDist = 0;
-
-        appData.workouts.forEach(w => {
-            // Climbing
-            if (w.outputKj) totalClimb += calculateElevation(w.outputKj, weight).meters;
-            else if (w.metricType !== 'miles' && w.output) totalClimb += calculateElevation(w.output, weight).meters;
-
-            // Distance
-            let distKm = 0;
-            if (w.miles) distKm = (w.miles * 1.60934);
-            else if (w.metricType === 'miles') distKm = (w.output * 1.60934);
-
-            totalDist += distKm;
-            if (w.type === 'bike') cyclingDist += distKm;
-            if (['run', 'walk', 'hike'].includes(w.type)) runningDist += distKm;
-        });
-
-        return {
-            climbingMeters: totalClimb,
-            climbingFeet: totalClimb * 3.28084,
-            distanceKm: totalDist,
-            distanceMiles: totalDist * 0.621371,
-            cyclingDistanceKm: cyclingDist,
-            cyclingDistanceMiles: cyclingDist * 0.621371,
-            runningDistanceKm: runningDist,
-            runningDistanceMiles: runningDist * 0.621371
-        };
-    }
-
-    function renderAchievementFacts() {
-        const container = document.getElementById('achievement-facts-container');
-        if (!container) return;
-
-        const totals = calculateTotalProgress();
-
-        // Elevation Milestones (Meters)
-        const climbingFacts = [
-            { threshold: 0, comparison: "Start climbing!" },
-            { threshold: 324, comparison: "Eiffel Tower 🗼" },
-            { threshold: 828, comparison: "Burj Khalifa 🏙️" },
-            { threshold: 1200, comparison: "Grand Canyon Depth 🏜️" },
-            { threshold: 1600, comparison: "Mile High ☁️" },
-            { threshold: 2228, comparison: "Mt. Kosciuszko (Australia) 🇦🇺" },
-            { threshold: 3776, comparison: "Mt. Fuji 🗻" },
-            { threshold: 4807, comparison: "Mont Blanc 🏔️" },
-            { threshold: 5895, comparison: "Mt. Kilimanjaro 🦒" },
-            { threshold: 6190, comparison: "Denali 🦅" },
-            { threshold: 6961, comparison: "Aconcagua ⛰️" },
-            { threshold: 8849, comparison: "Mt. Everest 🧗" },
-            { threshold: 17698, comparison: "2x Mt. Everest ✌️" },
-            { threshold: 26547, comparison: "3x Mt. Everest 🤯" },
-            { threshold: 100000, comparison: "Space (Kármán line) 🚀" }
-        ];
-
-        // Distance Milestones (Kilometers)
-        const distanceFacts = [
-            { threshold: 0, comparison: "Start moving!" },
-            { threshold: 42.195, comparison: "Marathon 🏃" },
-            { threshold: 100, comparison: "Ultra Marathon 👟" },
-            { threshold: 346, comparison: "London to Paris 🚄" },
-            { threshold: 804, comparison: "The Proclaimers (500mi) 🎤" },
-            { threshold: 1400, comparison: "Length of UK (Land's End to John o' Groats) 🇬🇧" },
-            { threshold: 2350, comparison: "Great Barrier Reef 🐠" },
-            { threshold: 3755, comparison: "Tour de France (approx) 🚴" },
-            { threshold: 3940, comparison: "Route 66 🇺🇸" },
-            { threshold: 6400, comparison: "Amazon River 🐍" },
-            { threshold: 10000, comparison: "Great Wall of China 🧱" },
-            { threshold: 12742, comparison: "Diameter of Earth 🌍" },
-            { threshold: 40075, comparison: "Circumference of Earth ✈️" },
-            { threshold: 384400, comparison: "Distance to Moon 🌚" }
-        ];
-
-        // Celestial Elevation Milestones (Meters)
-        const MOON_DISTANCE = 384400000; // Average distance to Moon in meters
-        const SUN_DISTANCE = 149600000000; // Average distance to Sun in meters
-
-        let celestialTarget = MOON_DISTANCE;
-        let celestialLabel = "the Moon 🌙";
-        let celestialIcon = "🌙";
-
-        if (totals.climbingMeters >= MOON_DISTANCE) {
-            celestialTarget = SUN_DISTANCE;
-            celestialLabel = "the Sun ☀️";
-            celestialIcon = "☀️";
-        }
-
-        const celestialPercent = (totals.climbingMeters / celestialTarget) * 100;
-
-        // Find the highest threshold reached
-        // We reverse the array to find the first match from largest to smallest, or just find the last one that satisfies condition
-        let climbFact = climbingFacts[0];
-        for (let i = climbingFacts.length - 1; i >= 0; i--) {
-            if (totals.climbingMeters >= climbingFacts[i].threshold) {
-                climbFact = climbingFacts[i];
-                break;
-            }
-        }
-
-        let distFact = distanceFacts[0];
-        for (let i = distanceFacts.length - 1; i >= 0; i--) {
-            if (totals.distanceKm >= distanceFacts[i].threshold) {
-                distFact = distanceFacts[i];
-                break;
-            }
-        }
-
-        const WORLD_CIRCUMFERENCE = 40075;
-        const MOON_DISTANCE_KM = 384400;
-        const worldMilesTarget = WORLD_CIRCUMFERENCE * 0.621371;
-
-        let worldContent = "";
-        if (totals.cyclingDistanceKm < MOON_DISTANCE_KM) {
-            const worldPercent = (totals.cyclingDistanceKm / WORLD_CIRCUMFERENCE) * 100;
-            worldContent = `
-                <div class="fact-label">Around the World</div>
-                <div class="fact-value">
-                    <div>${worldPercent.toFixed(2)}%</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
-                        ${totals.cyclingDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 1 })} km / 
-                        ${totals.cyclingDistanceMiles.toLocaleString(undefined, { maximumFractionDigits: 1 })} mi
-                    </div>
-                </div>
-                <div class="fact-comparison">Total Cycling Distance</div>
-                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 0.5rem; overflow: hidden;">
-                    <div style="width: ${Math.min(worldPercent, 100)}%; height: 100%; background: #4ecdc4;"></div>
-                </div>
-                <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                    Target: ${WORLD_CIRCUMFERENCE.toLocaleString()} km / ${worldMilesTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })} mi
-                </div>
-            `;
-        } else {
-            const worldTrips = totals.cyclingDistanceKm / WORLD_CIRCUMFERENCE;
-            worldContent = `
-                <div class="fact-label">Around the World</div>
-                <div class="fact-value">
-                    <div>${worldTrips.toFixed(1)}x</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
-                        ${totals.cyclingDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 1 })} km / 
-                        ${totals.cyclingDistanceMiles.toLocaleString(undefined, { maximumFractionDigits: 1 })} mi
-                    </div>
-                </div>
-                <div class="fact-comparison">Times Around the Earth! 🌍</div>
-                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 0.5rem; overflow: hidden;">
-                    <div style="width: 100%; height: 100%; background: #ff6b6b; animation: pulse 2s infinite;"></div>
-                </div>
-                <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                    Lap Progress: ${(totals.cyclingDistanceKm % WORLD_CIRCUMFERENCE).toLocaleString(undefined, { maximumFractionDigits: 1 })} / ${WORLD_CIRCUMFERENCE.toLocaleString()} km
-                </div>
-            `;
-        }
-
-        const POLAR_DISTANCE = 20004; // North Pole to Antarctica approx
-        const polarMilesTarget = POLAR_DISTANCE * 0.621371;
-        let polarContent = "";
-
-        if (totals.runningDistanceKm < POLAR_DISTANCE) {
-            const polarPercent = (totals.runningDistanceKm / POLAR_DISTANCE) * 100;
-            polarContent = `
-                <div class="fact-label">North Pole to Antarctica</div>
-                <div class="fact-value">
-                    <div>${polarPercent.toFixed(2)}%</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
-                        ${totals.runningDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 1 })} km / 
-                        ${totals.runningDistanceMiles.toLocaleString(undefined, { maximumFractionDigits: 1 })} mi
-                    </div>
-                </div>
-                <div class="fact-comparison">Running/Walking Progress</div>
-                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 0.5rem; overflow: hidden;">
-                    <div style="width: ${Math.min(polarPercent, 100)}%; height: 100%; background: #a29bfe;"></div>
-                </div>
-                <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                    Target: ${POLAR_DISTANCE.toLocaleString()} km / ${polarMilesTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })} mi
-                </div>
-            `;
-        } else {
-            const polarTrips = totals.runningDistanceKm / POLAR_DISTANCE;
-            polarContent = `
-                <div class="fact-label">North Pole to Antarctica</div>
-                <div class="fact-value">
-                    <div>${polarTrips.toFixed(1)}x</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
-                        ${totals.runningDistanceKm.toLocaleString(undefined, { maximumFractionDigits: 1 })} km / 
-                        ${totals.runningDistanceMiles.toLocaleString(undefined, { maximumFractionDigits: 1 })} mi
-                    </div>
-                </div>
-                <div class="fact-comparison">Times Traveled North to South! ❄️</div>
-                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 0.5rem; overflow: hidden;">
-                    <div style="width: 100%; height: 100%; background: #6c5ce7; animation: pulse 2s infinite;"></div>
-                </div>
-                <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                    Lap Progress: ${(totals.runningDistanceKm % POLAR_DISTANCE).toLocaleString(undefined, { maximumFractionDigits: 1 })} / ${POLAR_DISTANCE.toLocaleString()} km
-                </div>
-            `;
-        }
-
-        container.innerHTML = `
-            <div class="fact-card">
-                <div class="fact-icon">🌍</div>
-                <div class="fact-content">
-                    ${worldContent}
-                </div>
-            </div>
-            <div class="fact-card">
-                <div class="fact-icon">❄️</div>
-                <div class="fact-content">
-                    ${polarContent}
-                </div>
-            </div>
-            <div class="fact-card">
-                <div class="fact-icon">${celestialIcon}</div>
-                <div class="fact-content">
-                    <div class="fact-label">Way to ${celestialLabel}</div>
-                    <div class="fact-value">
-                        <div>${celestialPercent < 0.0001 ? "0.0000" : celestialPercent.toFixed(4)}%</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
-                            ${totals.climbingMeters.toLocaleString(undefined, { maximumFractionDigits: 0 })} m / 
-                            ${totals.climbingFeet.toLocaleString(undefined, { maximumFractionDigits: 0 })} ft
-                        </div>
-                    </div>
-                    <div class="fact-comparison">Total Elevation Distance</div>
-                    <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 0.5rem; overflow: hidden;">
-                        <div style="width: ${Math.min(celestialPercent, 100)}%; height: 100%; background: var(--primary-color);"></div>
-                    </div>
-                    <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem;">
-                        Target: ${celestialTarget.toLocaleString()} m / ${(celestialTarget * 3.28084).toLocaleString(undefined, { maximumFractionDigits: 0 })} ft
-                    </div>
-                </div>
-            </div>
-        `;
-    }
 
     // --- Challenges Management ---
     // (Consolidating helper functions)
@@ -2243,6 +2332,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     // challenge.progress = Math.max(challenge.progress, total); 
                     // (Optional: don't cap if they want to see over-achievement)
 
+                    awardTrophy(challenge);
+
+                    // Redirect to Achievements Tag
+                    const profileTabBtn = document.querySelector('button[data-tab="profile"]');
+                    if (profileTabBtn) profileTabBtn.click();
+
+                    // Show Celebration Modal
                     showCelebrationModal(challenge);
                 } else {
                     showNotification('Added', `Added progress to ${challenge.title}`, '🚀');
@@ -2315,11 +2411,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
                 .forEach(c => {
                     try {
-                        // Determine icon based on challenge ID
+                        // Determine icon based on challenge ID or subtype
                         let icon = '';
-                        if (runningChallenges.includes(c.id)) {
+                        if (runningChallenges.includes(c.id) || c.subtype === 'run') {
                             icon = '🏃 ';
-                        } else if (bikingChallenges.includes(c.id)) {
+                        } else if (bikingChallenges.includes(c.id) || c.subtype === 'bike') {
                             icon = '🚴 ';
                         }
 
@@ -2373,14 +2469,63 @@ document.addEventListener('DOMContentLoaded', () => {
         createClimbBtn.addEventListener('click', async () => {
             const name = document.getElementById('new-climbing-challenge-name').value;
             const height = document.getElementById('new-climbing-challenge-height').value;
+            const unit = document.querySelector('.unit-option.active[data-unit-type="new-climb-unit"]')?.dataset.unit || 'm';
+
             if (name && height) {
-                const newC = { id: 'custom_c_' + Date.now(), title: name, height: parseFloat(height), type: 'climbing' };
+                let heightMeters = parseFloat(height);
+                if (unit === 'ft') heightMeters = heightMeters * 0.3048;
+
+                const newC = { id: 'custom_c_' + Date.now(), title: name, height: heightMeters, type: 'climbing' };
                 appData.challenges.climbing.push(newC);
                 await database.saveChallenges('custom_climbing', appData.challenges.climbing);
                 renderChallenges();
+                document.getElementById('new-climbing-challenge-name').value = '';
+                document.getElementById('new-climbing-challenge-height').value = '';
+                showNotification('Created', 'Climbing challenge created!', '🏔️');
             }
         });
     }
+
+    const createDistBtn = document.getElementById('create-distance-challenge-btn');
+    if (createDistBtn) {
+        createDistBtn.addEventListener('click', async () => {
+            const name = document.getElementById('new-distance-challenge-name').value;
+            const dist = document.getElementById('new-distance-challenge-distance').value;
+            const unit = document.querySelector('.unit-option.active[data-unit-type="new-dist-unit"]')?.dataset.unit || 'km';
+            const subtype = document.getElementById('new-distance-challenge-subtype')?.value || 'bike';
+
+            if (name && dist) {
+                let distKm = parseFloat(dist);
+                if (unit === 'mi') distKm = distKm * 1.60934;
+
+                const newC = {
+                    id: 'custom_d_' + Date.now(),
+                    title: name,
+                    distance: distKm,
+                    type: 'distance',
+                    subtype: subtype
+                };
+
+                appData.challenges.distance.push(newC);
+                await database.saveChallenges('custom_distance', appData.challenges.distance);
+                renderChallenges();
+
+                document.getElementById('new-distance-challenge-name').value = '';
+                document.getElementById('new-distance-challenge-distance').value = '';
+                showNotification('Created', `${subtype === 'run' ? 'Running' : 'Cycling'} challenge created!`, (subtype === 'run' ? '🏃' : '🚴'));
+            }
+        });
+    }
+
+    // Toggle unit buttons for new challenges
+    document.querySelectorAll('.unit-option').forEach(opt => {
+        opt.addEventListener('click', (e) => {
+            const group = e.target.dataset.unitType;
+            if (!group) return;
+            document.querySelectorAll(`.unit-option[data-unit-type="${group}"]`).forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+        });
+    });
 
     // --- DIAGNOSTIC TOOL: Fix Workout IDs ---
     // This function helps identify workouts with mismatched IDs

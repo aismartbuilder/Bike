@@ -662,22 +662,54 @@ footer {
 
 /* Achievement Facts */
 .facts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 1rem;
+  justify-content: flex-start;
+  width: 100%;
+  overflow-x: auto;
+  padding: 0.5rem 0;
+}
+
+@media (max-width: 1024px) {
+  .facts-grid {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+  }
 }
 
 .fact-card {
-  background: linear-gradient(135deg, rgba(0, 242, 234, 0.1), rgba(255, 0, 85, 0.1));
-  padding: 1.5rem;
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(10px);
+  padding: 1rem 1.5rem;
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+  flex: 0 0 auto;
+  width: 280px;
+  max-width: 280px;
+}
+
+@media (max-width: 1024px) {
+  .fact-card {
+    width: 45%;
+    max-width: 300px;
+    min-width: 250px;
+  }
+}
+
+@media (max-width: 600px) {
+  .fact-card {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 .fact-card::before {
@@ -723,6 +755,8 @@ footer {
 
 .fact-content {
   flex: 1;
+  text-align: center;
+  width: 100%;
 }
 
 .fact-label {
@@ -2075,4 +2109,86 @@ select.manual-input option,
   visibility: visible;
   opacity: 1;
   transform: translateX(-50%) translateY(-10px);
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(-10px);
+}
+
+/* Trophy Case */
+.trophy-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  justify-content: center;
+}
+
+.trophy-card {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 140, 0, 0.1));
+  border: 2px solid rgba(255, 215, 0, 0.3);
+  border-radius: 50%;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+}
+
+.trophy-card:hover {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+  border-color: rgba(255, 215, 0, 0.8);
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.25), rgba(255, 140, 0, 0.15));
+  z-index: 10;
+}
+
+.trophy-icon {
+  font-size: 3rem;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
+  line-height: 1;
+}
+
+.trophy-info {
+  position: absolute;
+  bottom: -10px;
+  /* Overlap slightly */
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: rgba(10, 10, 15, 0.95);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  width: max-content;
+  max-width: 200px;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  pointer-events: none;
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.trophy-card:hover .trophy-info {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(100%);
+  /* Move below content */
+  bottom: -5px;
+}
+
+.trophy-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #ffd700;
+  margin-bottom: 0.1rem;
+  white-space: normal;
+}
+
+.trophy-date {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
 }

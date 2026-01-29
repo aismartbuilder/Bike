@@ -87,8 +87,8 @@ export const auth = {
             console.error('❌ Login error:', error.code, error.message);
 
             // User-friendly error messages
-            if (error.code === 'auth/user-not-found') {
-                alert('No account found with this email. Please sign up first.');
+            if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                alert('No account found with this email, or incorrect password. Please check your credentials or sign up.');
             } else if (error.code === 'auth/wrong-password') {
                 alert('Incorrect password. Please try again.');
             } else if (error.code === 'auth/invalid-email') {

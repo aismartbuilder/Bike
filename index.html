@@ -100,7 +100,8 @@
     <header>
       <div class="header-top">
         <div class="brand">
-          <h1>ElevationDestination</h1>
+          <h1>ElevationDestination <span style="font-size: 0.5em; opacity: 0.5; vertical-align: middle;">v1.2</span>
+          </h1>
           <p class="brand-tagline">Turn Sweat into Summits.</p>
         </div>
 
@@ -207,6 +208,7 @@
     <div id="notification-container"></div>
 
     <main>
+
       <!-- MY WORKOUTS TAB -->
       <div id="tab-myworkouts" class="tab-content active">
         <div class="card" style="margin-top: 0;">
@@ -356,44 +358,18 @@
 
       <!-- PROFILE TAB -->
       <div id="tab-profile" class="tab-content hidden">
-        <div class="card achievements-section" style="margin-top: 0;">
-          <h2>Your Trophy Case</h2>
-          <div class="badges-grid">
-            <div class="badge locked" id="badge-first-ride">
-              <span class="badge-icon">🚴</span>
-              <p>First Ride</p>
-            </div>
-            <div class="badge locked" id="badge-montblanc">
-              <span class="badge-icon">🏔️</span>
-              <p>Mont Blanc</p>
-            </div>
-            <div class="badge locked" id="badge-kilimanjaro">
-              <span class="badge-icon">🦁</span>
-              <p>Kilimanjaro</p>
-            </div>
-            <div class="badge locked" id="badge-k2">
-              <span class="badge-icon">⛰️</span>
-              <p>K2</p>
-            </div>
-            <div class="badge locked" id="badge-everest">
-              <span class="badge-icon">🧗</span>
-              <p>Mt. Everest</p>
-            </div>
-            <div class="badge locked" id="badge-eiffel">
-              <span class="badge-icon">🗼</span>
-              <p>Eiffel Tower</p>
-            </div>
+
+        <!-- Trophy Case (Completed Challenges) -->
+        <div class="card trophy-section" style="margin-top: 0;">
+          <h2>Trophy Case 🏆</h2>
+          <p class="description" style="margin-bottom: 1.5rem;">Your collection of completed challenges.</p>
+          <div id="trophy-case-grid" class="trophy-grid">
+            <!-- Trophies injected here -->
           </div>
         </div>
 
-        <!-- Achievement Facts Section -->
-        <div class="card achievements-section" style="margin-top: 1.5rem;">
-          <h2>Your Stats 📊</h2>
-          <p class="description" style="margin-bottom: 1.5rem;">Real-world comparisons based on your total progress!</p>
-          <div id="achievement-facts-container" class="facts-grid">
-            <!-- Facts will be rendered here by JavaScript -->
-          </div>
-        </div>
+
+
 
       </div>
 
@@ -477,6 +453,11 @@
                   <span class="unit-option active" data-unit-type="new-dist-unit" data-unit="km">km</span>
                   <span class="unit-option" data-unit-type="new-dist-unit" data-unit="mi">mi</span>
                 </div>
+                <!-- New Type Selector -->
+                <select id="new-distance-challenge-subtype" class="manual-input" style="flex: 0 0 auto; width: auto;">
+                  <option value="bike">🚴 Bike</option>
+                  <option value="run">🏃 Run</option>
+                </select>
                 <button id="create-distance-challenge-btn" class="btn btn-secondary" style="flex: 0 0 auto;">+</button>
               </div>
             </div>

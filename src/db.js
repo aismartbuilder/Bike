@@ -182,6 +182,35 @@ export const database = {
         }
     },
 
+    // --- Trophies ---
+    async saveTrophies(trophies) {
+        try {
+            const uid = getUserId();
+            const trophiesRef = doc(db, 'users', uid, 'app_data', 'trophies');
+            await setDoc(trophiesRef, { list: trophies });
+            console.log('✅ Trophies saved to Cloud');
+            return true;
+        } catch (e) {
+            console.error('Error saving trophies:', e);
+            return false;
+        }
+    },
+
+    async getTrophies() {
+        try {
+            const uid = getUserId();
+            const trophiesRef = doc(db, 'users', uid, 'app_data', 'trophies');
+            const docSnap = await getDoc(trophiesRef);
+            if (docSnap.exists()) {
+                return docSnap.data().list || [];
+            }
+            return [];
+        } catch (e) {
+            console.error('Error fetching trophies:', e);
+            return [];
+        }
+    },
+
     // --- Weight and Goal Logging ---
     async addWeightLog(weight, unit, customDate) {
         try {

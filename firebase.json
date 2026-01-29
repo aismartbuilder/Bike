@@ -19,6 +19,26 @@
                     "source": "**",
                     "destination": "/index.html"
                 }
+            ],
+            "headers": [
+                {
+                    "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg)",
+                    "headers": [
+                        {
+                            "key": "Cache-Control",
+                            "value": "max-age=31536000"
+                        }
+                    ]
+                },
+                {
+                    "source": "**",
+                    "headers": [
+                        {
+                            "key": "Cache-Control",
+                            "value": "no-cache, no-store, must-revalidate"
+                        }
+                    ]
+                }
             ]
         },
         {
@@ -33,6 +53,26 @@
                 {
                     "source": "**",
                     "destination": "/index.html"
+                }
+            ],
+            "headers": [
+                {
+                    "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg)",
+                    "headers": [
+                        {
+                            "key": "Cache-Control",
+                            "value": "max-age=31536000"
+                        }
+                    ]
+                },
+                {
+                    "source": "**",
+                    "headers": [
+                        {
+                            "key": "Cache-Control",
+                            "value": "no-cache, no-store, must-revalidate"
+                        }
+                    ]
                 }
             ]
         }
