@@ -2192,3 +2192,123 @@ select.manual-input option,
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.7);
 }
+
+/* Password Dropdown */
+details.password-change-section {
+  transition: all 0.3s ease;
+}
+
+details.password-change-section summary {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: white;
+}
+
+details.password-change-section summary:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+details.password-change-section[open] summary {
+  margin-bottom: 1rem;
+}
+
+details.password-change-section summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Highlighting for required fields when auto-calculation is on */
+.highlight-required {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 8px rgba(0, 242, 234, 0.4) !important;
+  transition: all 0.3s ease;
+}
+
+/* Calculation Result Modal */
+.calc-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.calc-modal {
+  background: #1e293b;
+  padding: 2rem;
+  border-radius: 1.5rem;
+  text-align: center;
+  max-width: 90%;
+  width: 380px;
+  border: 1px solid var(--primary-color);
+  box-shadow: 0 0 40px rgba(0, 242, 234, 0.2);
+  position: relative;
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.calc-modal.error-theme {
+  border-color: #ff4444;
+  box-shadow: 0 0 40px rgba(255, 68, 68, 0.2);
+}
+
+.calc-modal-icon {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.calc-modal-title {
+  font-size: 1.5rem;
+  color: var(--primary-color);
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+}
+
+.calc-modal.error-theme .calc-modal-title {
+  color: #ff4444;
+}
+
+.calc-modal-content {
+  font-size: 1rem;
+  color: #e2e8f0;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+  white-space: pre-line;
+  /* Handle newlines */
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.calc-modal-btn {
+  background: var(--primary-color);
+  color: #000;
+  font-weight: 600;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+  width: 100%;
+}
+
+.calc-modal.error-theme .calc-modal-btn {
+  background: #ff4444;
+  color: white;
+}
+
+.calc-modal-btn:hover {
+  transform: scale(1.02);
+  opacity: 0.9;
+}

@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <meta name="robots" content="noindex, nofollow">
 </head>
 
 <body>
@@ -23,8 +24,7 @@
       <h1>ElevationDestination</h1>
       <p>Turn Sweat into Summits.</p>
       <div class="cta-group">
-        <button id="landing-signup-btn" class="btn btn-primary">Start your Summit</button>
-        <button id="landing-login-btn" class="btn btn-secondary">Login</button>
+        <button id="landing-login-btn" class="btn btn-primary">Login</button>
       </div>
     </div>
     <div class="features">
@@ -62,7 +62,8 @@
         </div>
         <button type="submit" class="btn btn-primary">Log In</button>
       </form>
-      <p>No account? <a href="#" id="to-signup-link">Sign Up</a></p>
+      <!-- Sign up link removed for private access -->
+
       <button class="btn-text" id="login-back-btn">← Back</button>
     </div>
   </div>
@@ -142,6 +143,31 @@
               </div>
             </div>
 
+            <!-- Demographics Section -->
+            <div
+              style="display: flex; gap: 0.5rem; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+              <div class="input-group" style="flex: 1; margin: 0;">
+                <label for="profile-gender">Gender</label>
+                <select id="profile-gender" class="manual-input" style="width: 100%;">
+                  <option value="">Select...</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+              <div class="input-group" style="flex: 0 0 auto; width: 3.5rem; margin: 0;">
+                <label for="profile-age">Age</label>
+                <input type="number" id="profile-age" placeholder="Yr" min="0" class="manual-input">
+              </div>
+            </div>
+
+            <div class="input-group" style="margin-top: 0.5rem;">
+              <label>Height</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="number" id="profile-height-ft" placeholder="ft" class="manual-input" style="flex: 1;">
+                <input type="number" id="profile-height-in" placeholder="in" class="manual-input" style="flex: 1;">
+              </div>
+            </div>
+
             <div class="input-group" style="margin-top: 1.5rem;">
               <div class="label-row">
                 <label for="profile-goal">Weekly Goal</label>
@@ -171,9 +197,11 @@
               </div>
             </div>
 
-            <div class="password-change-section"
+            <details class="password-change-section"
               style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
-              <h4 style="margin-bottom: 1rem; font-size: 1rem;">Change Password</h4>
+              <summary style="margin-bottom: 1rem; font-size: 1rem; cursor: pointer; list-style: none;">
+                Change Password <span style="font-size: 0.8em; opacity: 0.7;">▼</span>
+              </summary>
               <div class="input-group">
                 <label for="current-password">Current Password</label>
                 <input type="password" id="current-password" placeholder="Enter current password">
@@ -188,7 +216,7 @@
               </div>
               <button id="change-password-btn" class="btn btn-secondary" style="margin-top: 0.5rem; width: 100%;">Change
                 Password</button>
-            </div>
+            </details>
 
             <button id="save-profile-btn" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">Save</button>
           </div>
@@ -224,7 +252,10 @@
                   <option value="run">🏃 Run</option>
                   <option value="walk">🚶 Walk</option>
                   <option value="hike">🥾 Hike</option>
+                  <option value="custom">✨ Custom</option>
                 </select>
+                <input type="text" id="challenge-log-custom-type" placeholder="Activity Name"
+                  class="manual-input hidden" style="flex: 1;">
                 <input type="date" id="challenge-log-date" class="manual-input">
                 <div style="display: flex; gap: 0.25rem; align-items: center;">
                   <input type="number" id="challenge-log-duration-hours" class="manual-input" placeholder="Hrs" min="0"
@@ -251,8 +282,24 @@
                 </div>
               </div>
 
+              <!-- Auto-Determine Checkbox -->
+              <div class="input-group checkbox-group" style="margin-top: 0.5rem; justify-content: flex-start;">
+                <input type="checkbox" id="auto-determine-energy">
+                <label for="auto-determine-energy" style="font-size: 0.9rem; margin-right: 0.5rem;">Determine my
+                  Calories and Kilojoules</label>
+                <div class="info-tooltip">
+                  <i>i</i>
+                  <div class="tooltip-bubble" style="width: 300px; right: auto; left: 0;">
+                    How your calories (kcal) and kilojoules (kJ) are estimated: <br><br>
+                    Using your Age, Gender, Weight, Height, Description of Activity, Duration, Intensity Level, and
+                    Heart Rate (Optional). <br><br>
+                    1 calories (kcal) ~ 4.184 kilojoules (kJ).
+                  </div>
+                </div>
+              </div>
+
               <!-- Optional Detailed Stats -->
-              <details
+              <details id="details-container"
                 style="margin-top: 1rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden;">
                 <summary
                   style="padding: 0.75rem; background: rgba(255,255,255,0.05); cursor: pointer; font-size: 0.9rem; user-select: none;">
@@ -288,8 +335,27 @@
 
                   <div class="form-row" style="gap: 0.5rem;">
                     <div class="input-group" style="flex: 1; margin: 0;">
+                      <label for="log-hr" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Avg Heart Rate
+                        (bpm)</label>
+                      <input type="number" id="log-hr" placeholder="e.g. 145" class="manual-input">
+                    </div>
+                    <div class="input-group" style="flex: 1; margin: 0;">
+                      <label for="log-intensity" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Intensity
+                        (0-10)</label>
+                      <input type="number" id="log-intensity" placeholder="10 = Max Effort" class="manual-input" min="0"
+                        max="10">
+                    </div>
+                  </div>
+
+                  <div class="form-row" style="gap: 0.5rem;">
+                    <div class="input-group" style="flex: 1; margin: 0;">
                       <label for="log-pace" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Avg Pace (min/mi)</label>
                       <input type="text" id="log-pace" placeholder="e.g. 8:30" class="manual-input">
+                    </div>
+                    <div class="input-group" style="flex: 1; margin: 0;">
+                      <label for="log-calories" style="font-size: 0.8rem; margin-bottom: 0.25rem;">Calories
+                        (kcal)</label>
+                      <input type="number" id="log-calories" placeholder="e.g. 450" class="manual-input">
                     </div>
                   </div>
 
@@ -301,10 +367,12 @@
 
                 </div>
               </details>
-              <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                <button id="challenge-log-workout-btn" class="btn btn-secondary" style="flex: 1;">Log Workout</button>
+              <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; align-items: stretch;">
+                <button id="challenge-log-workout-btn" class="btn btn-secondary" style="flex: 3;">Log Workout</button>
+                <button id="clear-form-btn" class="btn btn-secondary"
+                  style="flex: 1; background: rgba(255,255,255,0.05);">Clear</button>
                 <button id="cancel-edit-btn" class="btn btn-secondary"
-                  style="display: none; background: rgba(255,100,100,0.2); border-color: rgba(255,100,100,0.3);">Cancel</button>
+                  style="display: none; background: rgba(255,100,100,0.2); border-color: rgba(255,100,100,0.3); flex: 1;">Cancel</button>
               </div>
             </div>
 

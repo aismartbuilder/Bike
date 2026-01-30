@@ -200,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             ${gridItem('Avg Speed', workout.speed ? fmt(workout.speed, 'mph') : '-')}
             ${gridItem('Avg Power', workout.output ? fmt(workout.output, 'w') : '-')}
+            ${gridItem('Intensity', workout.intensity ? workout.intensity + '/10' : '-')}
         </div>
 
         <div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 3px solid var(--primary-color);">
@@ -355,7 +356,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Landing Page Buttons
-    document.getElementById('landing-signup-btn').addEventListener('click', () => switchView('signup'));
+    const landingSignupBtn = document.getElementById('landing-signup-btn');
+    if (landingSignupBtn) {
+        landingSignupBtn.addEventListener('click', () => switchView('signup'));
+    }
     document.getElementById('landing-login-btn').addEventListener('click', () => {
         switchView('login');
         setTimeout(() => {
@@ -374,10 +378,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('signup-back-btn').addEventListener('click', () => switchView('landing'));
 
     // Cross Links
-    document.getElementById('to-signup-link').addEventListener('click', (e) => {
-        e.preventDefault();
-        switchView('signup');
-    });
+    const toSignupLink = document.getElementById('to-signup-link');
+    if (toSignupLink) {
+        toSignupLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchView('signup');
+        });
+    }
     document.getElementById('to-login-link').addEventListener('click', (e) => {
         e.preventDefault();
         switchView('login');
@@ -467,6 +474,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Calculator ---
     const calculateBtn = document.getElementById('calculate-btn');
+
+
+    // --- Auto Determine Energy Toggle ---
+    const autoDetermineCheckbox = document.getElementById('auto-determine-energy');
+    if (autoDetermineCheckbox) {
+        autoDetermineCheckbox.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            const fieldsToHighlight = [
+                'challenge-log-duration-hours',
+                'challenge-log-duration-minutes',
+                'challenge-log-desc',
+                'log-intensity',
+                'log-hr',
+                'details-container'
+            ];
+
+
+            fieldsToHighlight.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (isChecked) el.classList.add('highlight-required');
+                    else el.classList.remove('highlight-required');
+                }
+            });
+
+            // Update Heart Rate Label
+            const hrLabel = document.querySelector('label[for="log-hr"]');
+            if (hrLabel) {
+                // Use formatting that matches the original ensuring clean display
+                if (isChecked) {
+                    hrLabel.innerHTML = 'Avg Heart Rate (bpm) <span style="font-weight:normal; opacity:0.8;">(Optional)</span>';
+                } else {
+                    hrLabel.innerHTML = 'Avg Heart Rate (bpm)';
+                }
+            }
+        });
+    }
+
     const outputInput = document.getElementById('output-kj');
     const weightInput = document.getElementById('user-weight');
     const resultsSection = document.getElementById('results');
@@ -528,6 +573,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Profile Settings ---
     const profileWeightInput = document.getElementById('profile-weight');
+    const profileGenderInput = document.getElementById('profile-gender');
+    const profileAgeInput = document.getElementById('profile-age');
+    const profileHeightFtInput = document.getElementById('profile-height-ft');
+    const profileHeightInInput = document.getElementById('profile-height-in');
+
     const profileGoalInput = document.getElementById('profile-goal');
     const profileWeightDateInput = document.getElementById('profile-weight-date');
     const profileGoalDateInput = document.getElementById('profile-goal-date');
@@ -578,6 +628,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (appData.settings.goal && profileGoalInput) {
             profileGoalInput.value = appData.settings.goal;
         }
+
+        if (appData.settings.gender && profileGenderInput) {
+            profileGenderInput.value = appData.settings.gender;
+        }
+        if (appData.settings.age && profileAgeInput) {
+            profileAgeInput.value = appData.settings.age;
+        }
+        if (appData.settings.heightFt && profileHeightFtInput) {
+            profileHeightFtInput.value = appData.settings.heightFt;
+        }
+        if (appData.settings.heightIn && profileHeightInInput) {
+            profileHeightInInput.value = appData.settings.heightIn;
+        }
+
         // Reset modification flags when loading
         isWeightModified = false;
         isGoalModified = false;
@@ -595,10 +659,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const weightDate = profileWeightDateInput ? profileWeightDateInput.value : null;
         const goalDate = profileGoalDateInput ? profileGoalDateInput.value : null;
 
+        // Demographics
+        const gender = profileGenderInput ? profileGenderInput.value : '';
+        const age = profileAgeInput ? profileAgeInput.value : '';
+        const heightFt = profileHeightFtInput ? profileHeightFtInput.value : '';
+        const heightIn = profileHeightInInput ? profileHeightInInput.value : '';
+
         const oldWeight = appData.settings.weight;
         const oldGoal = appData.settings.goal;
 
-        let profileUpdates = {};
+        let profileUpdates = {
+            gender: gender,
+            age: age,
+            heightFt: heightFt,
+            heightIn: heightIn
+        };
 
         // Log Weight if modified
         if (isWeightModified && weight) {
@@ -837,6 +912,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const logKjInput = document.getElementById('challenge-log-kj');
     const logMilesInput = document.getElementById('challenge-log-miles');
     const logTypeInput = document.getElementById('challenge-log-type');
+    const logCustomTypeInput = document.getElementById('challenge-log-custom-type');
     const logDateInput = document.getElementById('challenge-log-date');
     const logDurationHoursInput = document.getElementById('challenge-log-duration-hours');
     const logDurationMinutesInput = document.getElementById('challenge-log-duration-minutes');
@@ -847,7 +923,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const logResistanceInput = document.getElementById('log-resistance');
     const logElevationInput = document.getElementById('log-elevation');
     const logPaceInput = document.getElementById('log-pace');
+    const logCaloriesInput = document.getElementById('log-calories');
     const logNotesInput = document.getElementById('log-notes');
+    const logHrInput = document.getElementById('log-hr');
+    const logIntensityInput = document.getElementById('log-intensity');
 
 
 
@@ -866,8 +945,161 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize with today's date
     setTodayDate();
 
+    const clearFormBtn = document.getElementById('clear-form-btn');
+    if (clearFormBtn) {
+        clearFormBtn.addEventListener('click', () => {
+            cancelEdit(); // Re-use cancel logic to clear form, but we might want to keep the mode as 'adding'.
+            // cancelEdit resets everything and also hides the cancel button/resets button text, which is fine as "Clear" usually implies aborting the current complex entry or starting fresh.
+            // If we really just want to clear inputs but NOT exit edit mode if we were in it (edge case), we'd write a separate function.
+            // But usually "Clear" = "Reset to default state".
+            // Let's stick to using cancelEdit() for simplicity as it clears everything and resets state.
+        });
+    }
+
+    // Helper for Calculation Popup
+    function showCalculationPopup(title, message, isError = false) {
+        const overlay = document.createElement('div');
+        overlay.className = 'calc-modal-overlay';
+
+        const modal = document.createElement('div');
+        modal.className = 'calc-modal';
+        if (isError) modal.classList.add('error-theme');
+
+        const icon = document.createElement('span');
+        icon.className = 'calc-modal-icon';
+        icon.textContent = isError ? '⚠️' : '⚡';
+
+        const h2 = document.createElement('h2');
+        h2.className = 'calc-modal-title';
+        h2.textContent = title;
+
+        const content = document.createElement('div');
+        content.className = 'calc-modal-content';
+        content.textContent = message;
+
+        const btn = document.createElement('button');
+        btn.className = 'calc-modal-btn';
+        btn.textContent = isError ? 'Fix Issues' : 'Awesome';
+
+        btn.onclick = () => {
+            // Animate out? Or just remove.
+            // Simple interaction for now.
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        };
+
+        // Assemble
+        modal.appendChild(icon);
+        modal.appendChild(h2);
+        modal.appendChild(content);
+        modal.appendChild(btn);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+    }
+
+    // --- Advanced Calorie Calculator ---
+    function calculateAdvancedCalories(profile, workoutData) {
+        // 1. Inputs
+        const age = parseFloat(profile.age) || 30;
+        const gender = profile.gender || 'male';
+        const weight = parseFloat(profile.weight) || 80;
+        const weightUnit = profile.unit_weight || 'kg';
+        const weightKg = weightUnit === 'lbs' ? weight * 0.453592 : weight;
+
+        const description = (workoutData.description || '').toLowerCase();
+        const intensity = parseFloat(workoutData.intensity) || 5; // 1-10
+        const durationMins = parseFloat(workoutData.durationMinutes) || 0;
+        const hr = parseFloat(workoutData.heartRate) || 0;
+        const heightFt = parseFloat(profile.heightFt) || 0;
+        const heightIn = parseFloat(profile.heightIn) || 0;
+
+        if (durationMins <= 0) return { calories: 0, kj: 0, met: 0, explanation: 'Duration is 0' };
+
+        // 2. Determine Base METs from Keywords
+        let baseMet = 5; // Default "Moderate Activity"
+        let activityName = "General Workout";
+
+        const keywords = [
+            { words: ['run', 'jog', 'sprint', 'marathon'], met: 8, name: 'Running' },
+            { words: ['bike', 'cycle', 'cycling', 'spin'], met: 7, name: 'Cycling' },
+            { words: ['swim', 'pool', 'laps'], met: 6, name: 'Swimming' },
+            { words: ['walk', 'stroll'], met: 3.5, name: 'Walking' },
+            { words: ['hike', 'hiking', 'climb'], met: 7, name: 'Hiking' },
+            { words: ['lift', 'weight', 'strength', 'gym', 'muscle'], met: 5, name: 'Weightlifting' },
+            { words: ['hiit', 'interval', 'crossfit', 'bootcamp'], met: 8, name: 'HIIT' },
+            { words: ['yoga', 'pilates', 'stretch'], met: 3, name: 'Yoga' },
+            { words: ['dance', 'zumba'], met: 6, name: 'Dancing' },
+            { words: ['row', 'erg'], met: 7, name: 'Rowing' }
+        ];
+
+        for (const k of keywords) {
+            if (k.words.some(w => description.includes(w))) {
+                baseMet = k.met;
+                activityName = k.name;
+                break;
+            }
+        }
+
+        // 3. Adjust METs based on Intensity (1-10)
+        // Scale: 10 = 1.5x Base, 1 = 0.5x Base, 5 = 1.0x Base
+        // Formula: Multiplier = 0.5 + (Intensity / 10)
+        // Wait, standard range is usually +/-. Let's do:
+        // Intensity 5 is baseline. 
+        // 10 should probably be higher for things like running (8 -> 12+).
+        // Let's use a dynamic scaler:
+        // Adjusted = Base * (0.6 + (Intensity * 0.08)) -> Int 5 = 1.0x, Int 10 = 1.4x, Int 1 = 0.68x
+        const intensityMultiplier = 0.6 + (intensity * 0.08);
+        const finalMet = baseMet * intensityMultiplier;
+
+        // 4. Calculate Calories (MET Formula)
+        // Calories = MET * Weight(kg) * Duration(hours)
+        const durationHours = durationMins / 60;
+        let metCalories = finalMet * weightKg * durationHours;
+
+        // 5. Heart Rate Calculation (Keytel Formula) - If HR available
+        let hrCalories = 0;
+        if (hr > 0) {
+            if (gender === 'female') {
+                hrCalories = (-20.4022 + (0.4472 * hr) - (0.1263 * weightKg) + (0.074 * age)) * durationMins / 4.184;
+            } else {
+                hrCalories = (-55.0969 + (0.6309 * hr) + (0.1988 * weightKg) + (0.2017 * age)) * durationMins / 4.184;
+            }
+        }
+
+        // 6. Final Logic
+        let finalCalories = metCalories;
+        let explanation = `Estimated based on '${activityName}' (MET ${finalMet.toFixed(1)}) and intensity ${intensity}/10.`;
+
+        // If we have HR data, it's usually more personalized for effort, but METs accounts for the specific biomechanics of the logic better if HR is low/high due to non-effort factors.
+        // Let's average them if both exist for a "Balanced" approach, or lean on HR?
+        // User asked to explain the MET value used. So we should prioritize the MET calculation but maybe verify with HR.
+        // Let's stick to METs as requested for the explanation, but maybe incorporate HR if it's significantly different?
+        // Simplest interpretation of request: "Explain the MET value used... determine calories... use formula for kJ".
+        // I will return the MET-derived calories as primary, but maybe blend if HR differs wildy.
+        // Actually, the prompt says "Heart Rate Data: [Optional]... Please provide estimated range... and explain MET".
+        // I'll stick to the MET formula as the primary source of truth for "Explain MET", but if HR is present, I'll average it for the final number to be more accurate, noting it.
+
+        if (hr > 0 && hrCalories > 0) {
+            finalCalories = (metCalories + hrCalories) / 2;
+            explanation += ` Adjusted using Heart Rate data (${hr} bpm).`;
+        }
+
+        // Kilojoules
+        const kj = finalCalories * 4.184;
+
+        return {
+            calories: Math.round(finalCalories),
+            kj: Math.round(kj),
+            met: finalMet.toFixed(1),
+            explanation: explanation
+        };
+    }
+
+    // Main Log Workout Function
     async function logWorkout() {
-        const type = logTypeInput.value;
+        let type = logTypeInput.value;
+        if (type === 'custom' && logCustomTypeInput) {
+            type = logCustomTypeInput.value.trim() || 'Custom';
+        }
         let dateInput = logDateInput.value.trim();
 
         // Construct duration string HH:MM
@@ -883,7 +1115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const desc = logDescInput.value.trim();
-        const kjValue = parseFloat(logKjInput.value) || null;
+        let kjValue = parseFloat(logKjInput.value) || null;
         const milesValue = parseFloat(logMilesInput.value) || null;
 
         // Capture Optional Values
@@ -892,7 +1124,91 @@ document.addEventListener('DOMContentLoaded', () => {
         const resistance = logResistanceInput ? (parseFloat(logResistanceInput.value) || null) : null;
         const elevation = logElevationInput ? (parseFloat(logElevationInput.value) || null) : null;
         const pace = logPaceInput ? logPaceInput.value.trim() : null;
+        let calories = logCaloriesInput ? (parseFloat(logCaloriesInput.value) || null) : null;
         const notes = logNotesInput ? logNotesInput.value.trim() : null;
+        const heartRate = logHrInput ? (parseFloat(logHrInput.value) || null) : null;
+        const intensity = logIntensityInput ? (parseFloat(logIntensityInput.value) || null) : null;
+
+        // --- Auto-Determine Logic ---
+        const autoDetermine = document.getElementById('auto-determine-energy');
+        if (autoDetermine && autoDetermine.checked) {
+            // Validation: Check for missing required fields
+            const missingFields = [];
+
+            // Profile Checks
+            if (!appData.settings.age) missingFields.push('Age (in Settings)');
+            if (!appData.settings.weight) missingFields.push('Weight (in Settings)');
+            if (!appData.settings.gender) missingFields.push('Gender (in Settings)');
+            if (!appData.settings.heightFt && !appData.settings.heightIn) missingFields.push('Height (in Settings)');
+
+            // Input Checks
+            if (!desc) missingFields.push('Description');
+
+            const h = logDurationHoursInput ? (parseInt(logDurationHoursInput.value) || 0) : 0;
+            const m = logDurationMinutesInput ? (parseInt(logDurationMinutesInput.value) || 0) : 0;
+            if (h === 0 && m === 0) missingFields.push('Duration');
+
+            // Check intensity (explicit check for null since 0 might be coerced to null in extraction above, but 0 is technically a value)
+            // However, current extraction: const intensity = ... (parseFloat() || null). 0 becomes null.
+            if (intensity === null) missingFields.push('Intensity Level');
+
+            if (missingFields.length > 0) {
+                showCalculationPopup(
+                    'Missing Information',
+                    'Please fill in the following to calculate energy:\n\n' + missingFields.map(f => '• ' + f).join('\n'),
+                    true
+                );
+                return;
+            }
+
+            let estimatedCal = calories;
+            let estimatedKj = kjValue;
+
+            // 1. Cross-fill if one exists
+            if (estimatedKj && !estimatedCal) estimatedCal = estimatedKj;
+            else if (estimatedCal && !estimatedKj) estimatedKj = estimatedCal;
+
+            // 2. Calculate if both missing
+            else if (!estimatedKj && !estimatedCal) {
+                // Prepare Data for Calculator
+                const durationH = logDurationHoursInput ? (parseInt(logDurationHoursInput.value) || 0) : 0;
+                const durationM = logDurationMinutesInput ? (parseInt(logDurationMinutesInput.value) || 0) : 0;
+                const totalMins = (durationH * 60) + durationM;
+
+                const calcResult = calculateAdvancedCalories(appData.settings, {
+                    description: desc,
+                    intensity: intensity, // validated as not null/und earlier if checked
+                    durationMinutes: totalMins,
+                    heartRate: heartRate
+                });
+
+                if (calcResult.calories > 0) {
+                    estimatedCal = calcResult.calories;
+                    estimatedKj = calcResult.kj;
+
+                    // Show the explanation to the user!
+                    showCalculationPopup(
+                        'Energy Estimate',
+                        `Based on your workout:\n\nCalories: ${estimatedCal} kcal\nKilojoules: ${estimatedKj} kJ\n\n${calcResult.explanation}`
+                    );
+
+                    // Explicitly populate the inputs for visibility (even if cleared shortly after, it ensures data integrity flow)
+                    if (logCaloriesInput) logCaloriesInput.value = estimatedCal;
+                    if (logKjInput) logKjInput.value = estimatedKj;
+
+                    // Add explanation to notes if empty
+                    if (!notes) {
+                        // We can't easily update the 'const notes' variable we read earlier without modifying the 'newWorkout' object construction later.
+                        // But we can append it to the description or just let the user see the alert.
+                        // The prompt implies we just need to "provide" it. The Alert does that.
+                    }
+                }
+            }
+
+            // Update variables
+            if (estimatedCal) calories = estimatedCal;
+            if (estimatedKj) kjValue = estimatedKj;
+        }
 
 
 
@@ -914,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', () => {
             type, date, duration: durationInput, title: desc, outputKj: kjValue, miles: milesValue,
             output: kjValue || milesValue,
             metricType: kjValue ? 'output' : 'miles',
-            cadence, speed, resistance, elevation, pace, notes, // Add new fields
+            cadence, speed, resistance, elevation, pace, calories, notes, heartRate, intensity, // Add new fields
             id: tempId // Use temp ID initially
         };
         console.log('DEBUG: Logging Workout with temp ID:', tempId, newWorkout);
@@ -963,8 +1279,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (logResistanceInput) logResistanceInput.value = '';
         if (logElevationInput) logElevationInput.value = '';
         if (logPaceInput) logPaceInput.value = '';
+        if (logCaloriesInput) logCaloriesInput.value = '';
         if (logNotesInput) logNotesInput.value = '';
+        if (logHrInput) logHrInput.value = '';
+        if (logIntensityInput) logIntensityInput.value = '';
         setTodayDate();
+
+        // Return to home view (My Workouts)
+        const workoutTab = document.querySelector('.tab-btn[data-tab="myworkouts"]');
+        if (workoutTab) workoutTab.click();
+
+        // Ensure Optional Details are closed
+        const details = document.getElementById('details-container');
+        if (details) details.open = false;
+
+        // Uncheck Auto-Determine Energy
+        const autoDet = document.getElementById('auto-determine-energy');
+        if (autoDet) {
+            autoDet.checked = false;
+            autoDet.dispatchEvent(new Event('change'));
+        }
     }
     if (logBtn) logBtn.addEventListener('click', () => {
         if (editingWorkoutId) {
@@ -1031,10 +1365,23 @@ document.addEventListener('DOMContentLoaded', () => {
         editingWorkoutId = workout.id;
 
         // Populate form with workout data
-        logTypeInput.value = workout.type || 'bike';
+        const knownTypes = ['bike', 'run', 'walk', 'hike'];
+        if (knownTypes.includes(workout.type)) {
+            logTypeInput.value = workout.type;
+            if (logCustomTypeInput) logCustomTypeInput.classList.add('hidden');
+        } else {
+            logTypeInput.value = 'custom';
+            if (logCustomTypeInput) {
+                logCustomTypeInput.value = workout.type;
+                logCustomTypeInput.classList.remove('hidden');
+            }
+        }
         logDescInput.value = workout.title || '';
         logKjInput.value = workout.outputKj || '';
         logMilesInput.value = workout.miles || '';
+        if (logCaloriesInput) logCaloriesInput.value = workout.calories || '';
+        if (logHrInput) logHrInput.value = workout.heartRate || '';
+        if (logIntensityInput) logIntensityInput.value = workout.intensity || '';
         // HTML5 date input expects yyyy-mm-dd format, which is what we store
         logDateInput.value = workout.date || '';
         // HTML5 date input expects yyyy-mm-dd format, which is what we store
@@ -1069,7 +1416,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function updateWorkout() {
         if (!editingWorkoutId) return;
 
-        const type = logTypeInput.value;
+        let type = logTypeInput.value;
+        if (type === 'custom' && logCustomTypeInput) {
+            type = logCustomTypeInput.value.trim() || 'Custom';
+        }
         let dateInput = logDateInput.value.trim();
 
         // Construct duration string HH:MM
@@ -1086,6 +1436,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const desc = logDescInput.value.trim();
         const kjValue = parseFloat(logKjInput.value) || null;
         const milesValue = parseFloat(logMilesInput.value) || null;
+        const caloriesValue = logCaloriesInput ? (parseFloat(logCaloriesInput.value) || null) : null;
+        const heartRateValue = logHrInput ? (parseFloat(logHrInput.value) || null) : null;
+        const intensityValue = logIntensityInput ? (parseFloat(logIntensityInput.value) || null) : null;
 
         // HTML5 date input provides yyyy-mm-dd format
         let date;
@@ -1115,6 +1468,9 @@ document.addEventListener('DOMContentLoaded', () => {
             title: desc,
             outputKj: kjValue,
             miles: milesValue,
+            calories: caloriesValue,
+            heartRate: heartRateValue,
+            intensity: intensityValue,
             output: kjValue || milesValue,
             metricType: kjValue ? 'output' : 'miles'
         };
@@ -1136,6 +1492,21 @@ document.addEventListener('DOMContentLoaded', () => {
         renderMyChallenges();
         renderAchievementFacts();
         cancelEdit();
+
+        // Return to home view (My Workouts)
+        const workoutTab = document.querySelector('.tab-btn[data-tab="myworkouts"]');
+        if (workoutTab) workoutTab.click();
+
+        // Ensure Optional Details are closed
+        const details = document.getElementById('details-container');
+        if (details) details.open = false;
+
+        // Uncheck Auto-Determine Energy
+        const autoDet = document.getElementById('auto-determine-energy');
+        if (autoDet) {
+            autoDet.checked = false;
+            autoDet.dispatchEvent(new Event('change'));
+        }
     }
 
     // Cancel edit mode
@@ -1152,6 +1523,12 @@ document.addEventListener('DOMContentLoaded', () => {
         logMilesInput.value = '';
         if (logDurationHoursInput) logDurationHoursInput.value = '';
         if (logDurationMinutesInput) logDurationMinutesInput.value = '';
+        if (logCustomTypeInput) {
+            logCustomTypeInput.value = '';
+            logCustomTypeInput.classList.add('hidden');
+        }
+        if (logHrInput) logHrInput.value = '';
+        if (logIntensityInput) logIntensityInput.value = '';
         setTodayDate();
     }
 
