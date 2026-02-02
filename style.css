@@ -2230,6 +2230,10 @@ select.manual-input option,
 }
 
 /* Trophy Case */
+.trophy-section {
+  position: relative;
+}
+
 .trophy-grid {
   display: flex;
   flex-wrap: wrap;
@@ -2492,4 +2496,178 @@ details.password-change-section summary::-webkit-details-marker {
 .calc-modal-btn:hover {
   transform: scale(1.02);
   opacity: 0.9;
+}
+
+/* =========================================
+   MOBILE RESPONSIVENESS (Max-Width: 768px)
+   ========================================= */
+@media (max-width: 768px) {
+
+  /* Global Layout Adjustments */
+  .view-section {
+    padding: 1rem 0.5rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .card,
+  .auth-card {
+    padding: 1.5rem 1rem;
+    border-radius: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  h1 {
+    font-size: 2.2rem;
+  }
+
+  h2 {
+    font-size: 1.8rem;
+  }
+
+  /* Navigation & Header */
+  .header-top {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .user-controls {
+    position: static;
+    /* Stack properly on mobile */
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+
+  .brand h1 {
+    font-size: 2rem;
+  }
+
+  /* Tab Navigation */
+  .tab-nav {
+    justify-content: flex-start;
+    padding: 0.5rem;
+    margin: 1.5rem 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .tab-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    flex: 0 0 auto;
+    /* Ensure they don't shrink too much */
+  }
+
+  /* Auth Pages */
+  .auth-card {
+    width: 95%;
+    max-width: none;
+  }
+
+  /* Main App - Workouts Tab */
+  .workout-log-container.two-columns {
+    grid-template-columns: 1fr;
+    /* Stack columns */
+    gap: 1.5rem;
+  }
+
+  .form-row,
+  .form-row.main-fields {
+    flex-direction: column;
+    /* Stack inputs in forms */
+    gap: 1rem;
+  }
+
+  /* Exception for small side-by-side inputs like hrs/mins */
+  .form-row .input-group:has(#challenge-log-duration-hours)>div {
+    /* Keep duration side-by-side if possible, or let it flex */
+    width: 100%;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  /* Challenges Grid */
+  .challenges-grid {
+    grid-template-columns: 1fr;
+    /* Single column for challenges */
+  }
+
+  .fact-card {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* My Challenges Rings */
+  .my-challenges-wrapper {
+    gap: 1rem;
+  }
+
+  .challenge-ring-container {
+    width: 220px;
+    height: 220px;
+  }
+
+  .challenge-circle-inner {
+    width: 200px;
+    height: 200px;
+  }
+
+  .circle-icon {
+    font-size: 2.5rem;
+  }
+
+  .circle-title {
+    font-size: 1.1rem;
+  }
+
+  /* Settings Drawer */
+  .settings-dropdown {
+    width: 100%;
+    /* Full width on mobile */
+    max-width: 100%;
+  }
+
+  /* Trophy Case */
+  .badges-grid {
+    grid-template-columns: repeat(2, 1fr);
+    /* 2 columns instead of 3 */
+  }
+
+  .features {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .feature-card {
+    min-width: 0;
+  }
+
+  /* Notification Toast */
+  #notification-container {
+    width: 90%;
+    right: 5%;
+    left: 5%;
+    top: 20px;
+  }
+
+  .notification-toast {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 480px) {
+
+  /* Even smaller screens (narrow phones) */
+  .badges-grid {
+    grid-template-columns: 1fr;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
 }

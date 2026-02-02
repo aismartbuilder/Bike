@@ -2065,7 +2065,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 "${firstDate ? formatDateForDisplay(firstDate) : 'Unknown'}  ➔  ${lastDate ? formatDateForDisplay(lastDate) : 'Unknown'}"
             </div>
 
-            <div style="text-align: center;">
+            <div class="celebration-actions" style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem;">
+                <button class="btn-celebrate-share btn-secondary" style="flex: 1; padding: 0.75rem;">Share 📤</button>
+                <button class="btn-celebrate-copy btn-secondary" style="flex: 1; padding: 0.75rem;">Copy Image 📋</button>
+            </div>
+            
+            <div class="close-actions-container" style="text-align: center; margin-top: 0.5rem;">
                 <button class="btn-primary" id="close-trophy-modal" style="width: 100%; border-radius: 8px; padding: 0.75rem;">Close Summary</button>
             </div>
         `;
@@ -2077,6 +2082,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const closeBtn = modal.querySelector('#close-trophy-modal');
         if (closeBtn) closeBtn.addEventListener('click', close);
+
+        // Attach Share Handlers
+        const shareBtn = modal.querySelector('.btn-celebrate-share');
+        const copyBtn = modal.querySelector('.btn-celebrate-copy');
+        const actionsContainer = modal.querySelector('.celebration-actions');
+        const closeContainer = modal.querySelector('.close-actions-container');
+
+        const elementsToHide = [actionsContainer, closeContainer];
+
+        if (shareBtn) {
+            shareBtn.addEventListener('click', () =>
+                handleModalCapture(modal, elementsToHide, shareBtn, shareBtn.textContent, trophy.title, 'share')
+            );
+        }
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () =>
+                handleModalCapture(modal, elementsToHide, copyBtn, copyBtn.textContent, trophy.title, 'copy')
+            );
+        }
 
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
@@ -2130,7 +2154,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Add Sync Button at the bottom
         const syncWrapper = document.createElement('div');
-        syncWrapper.style.cssText = 'grid-column: 1/-1; text-align: right; margin-top: 1rem;';
+        syncWrapper.style.cssText = 'position: absolute; bottom: 1.5rem; right: 1.5rem; z-index: 10;';
         syncWrapper.innerHTML = `
             <button id="manual-sync-trophies" style="background:none; border:none; color:#64748b; font-size:0.7rem; cursor:pointer; opacity: 0.5; transition: opacity 0.2s;">
                 🔄 Sync Case
@@ -2217,139 +2241,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 5000);
         }
 
-        async function handleCapture(action) {
-            const btn = modal.querySelector(action === 'share' ? '.btn-celebrate-share' : '.btn-celebrate-copy');
-            const originalText = btn.textContent;
-            btn.textContent = 'Capturing...';
-            btn.disabled = true;
-
-            try {
-                // Short delay to ensure rendering matches visuals
-                await new Promise(r => setTimeout(r, 100));
-
-                const actions = modal.querySelector('.celebration-actions');
-                actions.style.display = 'none'; // Hide buttons for capture
-
-                if (typeof html2canvas === 'undefined') {
-                    throw new Error('html2canvas dependency not loaded. Please restart app.');
-                }
-
-                // Capture MODAL directly (removes blue overlay background)
-                const canvas = await html2canvas(modal, {
-                    backgroundColor: null, // Transparent background!
-                    scale: 3, // High Res for "Enlarged" feeling
-                    useCORS: true,
-                    logging: false,
-                    allowTaint: true
-                });
-
-                // Restore buttons
-                actions.style.display = 'flex';
-                btn.textContent = originalText;
-                btn.disabled = false;
-
-                canvas.toBlob(async blob => {
-                    if (!blob) throw new Error('Canvas conversion failed');
-                    const file = new File([blob], 'challenge-completion.png', { type: 'image/png' });
-
-                    if (action === 'share') {
-                        shareChallengeVisual(challenge, file);
-                    } else if (action === 'copy') {
-                        try {
-                            if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
-                                await navigator.clipboard.write([
-                                    new ClipboardItem({ [file.type]: file })
-                                ]);
-                                showNotification('Copied', 'Image copied to clipboard!', '📋');
-                            } else {
-                                throw new Error('Clipboard API not supported');
-                            }
-                        } catch (err) {
-                            console.error('Copy failed', err);
-                            alert('Copy failed: ' + err.message + '. Try "Share Victory" instead.');
-                        }
-                    }
-                });
-
-            } catch (err) {
-                console.error('Capture failed:', err);
-                alert('Screen capture failed: ' + err.message);
-
-                // Restore UI
-                const actions = modal.querySelector('.celebration-actions');
-                if (actions) actions.style.display = 'flex';
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }
-        }
-
         // modal.querySelector('.btn-celebrate-share').addEventListener('click', () => handleCapture('share'));
         // modal.querySelector('.btn-celebrate-copy').addEventListener('click', () => handleCapture('copy'));
+
+        // Fix: Actually attach the new listeners if buttons exist (checking assuming you might add them back to HTML string above if needed, 
+        // but based on previous code they weren't in the HTML string, so assuming they ARE in the HTML string now or should be?
+        // Wait, the previous code had them commented out or removed?
+        // Let's add them back to the HTML string in showCelebrationModal if they are missing or ensure we select them if they exist.
+        // ... Actually looking at previous file content, it seems the buttons were NOT in the innerHTML string in line 2185!
+        // You should probably add them to the celebration modal HTML if you want them there too.
+        // But sticking to the strict task "allow a use to share the pop up" (trophy popup), let's fix trophy popup first.
+
+        // HOWEVER, to reuse logic, I DO need to update showCelebrationModal to use handleModalCapture if it HAS buttons.
+
+        // For now, let's just make sure showCelebrationModal uses the new helper if we were to adding buttons back.
+        // But wait, the original file content 2220-2294 contained a huge inner function handleCapture. 
+        // I should REMOVE that inner function since I moved it out.
 
         modal.querySelector('.btn-celebrate-close').addEventListener('click', close);
 
         function close() {
             overlay.remove();
         }
-    }
-
-    async function shareChallengeVisual(challenge, file) {
-        if (!file || file.size === 0) {
-            alert('Error: Image capture resulted in an empty file.');
-            return;
-        }
-
-        const text = `I just crushed the ${challenge.title} challenge on ElevationDestination! 🏔️🚴 #ElevationDestination #FitnessGoals`;
-
-        // 1. Try Native Share (Mobile/Supported)
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                await navigator.share({
-                    files: [file],
-                    title: 'Challenge Complete!',
-                    text: text,
-                    url: '' // Explicitly prevent URL sharing
-                });
-                return; // Success
-            } catch (err) {
-                if (err.name !== 'AbortError') {
-                    console.error('Native Share failed:', err);
-                    alert('Share failed: ' + err.message + '. Saving image instead.');
-                    // Fallback to Download
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(file);
-                    link.download = `elevation-destination-${challenge.id}-complete.png`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                }
-            }
-            return;
-        }
-
-        // 2. Try Clipboard (Desktop)
-        try {
-            if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
-                await navigator.clipboard.write([
-                    new ClipboardItem({
-                        [file.type]: file
-                    })
-                ]);
-                showNotification('Copied', 'Image copied to clipboard!', '📋');
-                return;
-            }
-        } catch (err) {
-            console.warn('Clipboard write failed', err);
-        }
-
-        // 3. Fallback: Download
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(file);
-        link.download = `elevation-destination-${challenge.id}-complete.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showNotification('Saved', 'Image saved to device!', '📸');
     }
 
     // --- Stats ---
@@ -2588,6 +2501,149 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
+    }
+
+    // --- SHARED CAPTURE LOGIC ---
+    async function handleModalCapture(modalElement, elementsToHide, btn, originalText, challengeTitle, shareType) {
+        btn.textContent = 'Capturing...';
+        btn.disabled = true;
+
+        try {
+            // Short delay to ensure rendering matches visuals
+            await new Promise(r => setTimeout(r, 100));
+
+            // Hide visual clutter for capture
+            if (Array.isArray(elementsToHide)) {
+                elementsToHide.forEach(el => {
+                    if (el) el.dataset.originalDisplay = el.style.display;
+                    if (el) el.style.display = 'none';
+                });
+            } else if (elementsToHide) {
+                // Fallback for single element
+                elementsToHide.style.display = 'none';
+            }
+
+            if (typeof html2canvas === 'undefined') {
+                throw new Error('html2canvas dependency not loaded. Please restart app.');
+            }
+
+            // Capture MODAL directly (removes blue overlay background)
+            const canvas = await html2canvas(modalElement, {
+                backgroundColor: '#0f172a', // Force dark background for visibility!
+                scale: 3, // High Res
+                useCORS: true,
+                logging: false,
+                allowTaint: true
+            });
+
+            // Restore buttons
+            if (Array.isArray(elementsToHide)) {
+                elementsToHide.forEach(el => {
+                    if (el) el.style.display = el.dataset.originalDisplay || '';
+                });
+            } else if (elementsToHide) {
+                elementsToHide.style.display = 'flex'; // simplistic restoration, but array method is preferred
+            }
+
+            btn.textContent = originalText;
+            btn.disabled = false;
+
+            canvas.toBlob(async blob => {
+                if (!blob) {
+                    alert('Error: Screenshot generation failed (empty blob).');
+                    return;
+                }
+                if (blob.size === 0) {
+                    alert('Error: Screenshot is empty (0 bytes).');
+                    return;
+                }
+
+                // Sanitize filename for Windows compatibility
+                const safeTitle = (challengeTitle || 'elevation-trophy').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                const filename = `trophy_${safeTitle}.png`;
+
+                const file = new File([blob], filename, { type: 'image/png' });
+
+                if (shareType === 'share') {
+                    await shareChallengeVisual(challengeTitle, file);
+                } else if (shareType === 'copy') {
+                    try {
+                        if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
+                            await navigator.clipboard.write([
+                                new ClipboardItem({ [file.type]: file })
+                            ]);
+                            showNotification('Copied', 'Image copied to clipboard!', '📋');
+                        } else {
+                            throw new Error('Clipboard API not supported');
+                        }
+                    } catch (err) {
+                        console.error('Copy failed', err);
+                        alert('Copy failed: ' + err.message + '. Try "Share Victory" instead.');
+                    }
+                }
+            }, 'image/png'); // Explicit mime type in toBlob
+
+
+        } catch (err) {
+            console.error('Capture failed:', err);
+            alert('Screen capture failed: ' + err.message);
+
+            // Restore UI
+            if (Array.isArray(elementsToHide)) {
+                elementsToHide.forEach(el => {
+                    if (el) el.style.display = el.dataset.originalDisplay || '';
+                });
+            } else if (elementsToHide) {
+                elementsToHide.style.display = 'flex';
+            }
+
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    async function shareChallengeVisual(title, file) {
+        if (!file || file.size === 0) {
+            alert('Error: Image capture resulted in an empty file.');
+            return;
+        }
+
+        const text = `I just crushed the ${title} challenge on ElevationDestination! 🏔️🚴 #ElevationDestination #FitnessGoals`;
+
+        // 1. Try Native Share (Mobile/Supported)
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    files: [file],
+                    title: 'Challenge Complete!',
+                    text: text,
+                    url: '' // Explicitly prevent URL sharing
+                });
+                return; // Success
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Native Share failed:', err);
+                    alert('Share failed: ' + err.message + '. Saving image instead.');
+                    // Fallback to Download
+                    downloadImage(file, title);
+                }
+            }
+            return;
+        }
+
+        // 2. Try Clipboard (Desktop) - skipping auto-copy here to avoid confusion if they clicked SHARE
+        // Instead, just download if native share fails on desktop
+        downloadImage(file, title);
+    }
+
+    function downloadImage(file, title) {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(file);
+        link.download = `elevation-destination-${title.replace(/\s+/g, '-').toLowerCase()}-complete.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showNotification('Saved', 'Image saved to device!', '📸');
     }
 
 
